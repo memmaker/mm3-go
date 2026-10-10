@@ -46,9 +46,9 @@ func Open(romDir string) error {
 	return nil
 }
 
-// StartOutput starts the Ebiten audio stream, once.
+// StartOutput starts the Ebiten audio stream, once; without the MT-32 it carries speech only.
 func StartOutput() {
-	if started || !opened {
+	if started {
 		return
 	}
 	started = true
@@ -103,6 +103,9 @@ func (Stream) Read(b []byte) (int, error) {
 	frames := len(b) / 4
 	mu.Lock()
 	defer mu.Unlock()
+	if !opened {
+		ticks = nil
+	}
 	for len(ticks) > backlog {
 		play(ticks[0])
 		ticks = ticks[1:]
@@ -117,7 +120,11 @@ func (Stream) Read(b []byte) (int, error) {
 			n = frames - f
 		}
 		if n > 0 {
-			mtRender(out[f*2 : (f+n)*2])
+			if opened {
+				mtRender(out[f*2 : (f+n)*2])
+			} else {
+				clear(out[f*2 : (f+n)*2])
+			}
 		}
 		f += n
 		if tickAcc += n * pitHz; tickAcc >= tickPIT*outRate {

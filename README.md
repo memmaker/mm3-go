@@ -15,3 +15,12 @@ Music and sound effects play on munt's MT-32 emulation (roland.drv's player): in
 `roms/` (working directory or next to the binary) or pass `-roms DIR`. Without them the game runs silently.
 
 See PORTING.md for how the C maps to Go.
+
+## In the browser
+
+The WebAssembly build (`GOOS=js GOARCH=wasm go build ./cmd/mm3`) runs in
+[goplay](https://ruzzoli.de/goplay/) on the player's own files: `GOPLAY_DATA`
+names the game's folder (saves go beside it). When the page's MT-32 has its
+ROMs, goplay sets `GOPLAY_MT32` and music and sound effects play on it (munt
+compiled to WebAssembly, offered by the page as `goplayMT32`). Speech plays
+either way.

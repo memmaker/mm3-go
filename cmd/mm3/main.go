@@ -12,16 +12,23 @@ import (
 )
 
 func main() {
-	data := flag.String("data", "gamedata", "the game directory (with MM3.CC and MM3.CFG)")
+	defData, defRoms := "gamedata", os.Getenv("GOPLAY_MT32") // goplay (the browser): the dropped game; the page MT-32's ROMs
+	if d := os.Getenv("GOPLAY_DATA"); d != "" {
+		defData = d
+	}
+	data := flag.String("data", defData, "the game directory (with MM3.CC and MM3.CFG)")
 	saves := flag.String("saves", "", "where MM3.CUR and the saved games go (default: the user config directory)")
 	scale := flag.Int("scale", 3, "window scale")
 	pace := flag.Int("pace", mm3.AnimRetraces, "70 Hz retraces per idle view animation frame (5: 386/486, 3: fast 486; higher is slower)")
-	roms := flag.String("roms", "", "the MT-32 ROM directory for music (default: roms/ in the working directory or next to the binary; none: silent)")
+	roms := flag.String("roms", defRoms, "the MT-32 ROM directory for music (default: roms/ in the working directory or next to the binary; none: silent)")
 	flag.Parse()
 	mm3.RomDir = romDir(*roms)
 	mm3.AnimRetraces = *pace
 	mm3.GameDir = *data
 	mm3.SaveDir = *saves
+	if mm3.SaveDir == "" && os.Getenv("GOPLAY_DATA") != "" {
+		mm3.SaveDir = *data // goplay: saves beside the game
+	}
 	if mm3.SaveDir == "" {
 		dir, err := os.UserConfigDir()
 		if err != nil {

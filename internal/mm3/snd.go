@@ -65,12 +65,12 @@ func sndInit(port int) {
 	sndMusicOn = false
 	if rol == nil && RomDir != "" {
 		if err := snd.Open(RomDir); err != nil {
-			fmt.Fprintln(os.Stderr, "MT-32:", err, "- no sound")
+			fmt.Fprintln(os.Stderr, "MT-32:", err, "- no music (speech still plays)")
 		} else {
 			rol = newRoland(ccLoad("roland.drv"), snd.Send)
-			snd.StartOutput()
 		}
 	}
+	snd.StartOutput() // speech plays without the MT-32 too
 	if rol != nil {
 		rol.init()
 	}
