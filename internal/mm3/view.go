@@ -213,6 +213,42 @@ func drawWizardEyeOutdoor() {
 	dl[k] = -1
 	sprintf(buf, fmtP(gFmtSprites), adrDrawList)
 	wizEyeShow(buf)
+	wizEyeMonsters()
+}
+
+// wizEyeMonsters (port addition): with the Wizard Eye spell up, a red dot marks each cell of
+// the minimap's 7x7 that holds live monsters. The minimap itself only needs a Cartographer.
+func wizEyeMonsters() {
+	if *gWizardEye == 0 {
+		return
+	}
+	px, py := int(*gPartyX), int(*gPartyY)
+	red := nearestColor(63, 0, 0)
+	cursorHide() // the cursor is drawn into the offscreen: lift it off before drawing under it
+	for m := 0; m < int(*gMonCount); m++ {
+		dx, dy := int(gMonX[m])-px, int(gMonY[m])-py
+		if uint16(gMonY[m]) >= 0x20 || gMonVisible[m] == 0 || dx < -3 || dx > 3 || dy < -3 || dy > 3 {
+			continue
+		}
+		x, y := win.left+uint16(gWizeyeColX[dx+3])+3, win.top+uint16(gWizeyeRowY[3-dy])+2
+		for d := uint16(0); d < 16; d++ {
+			put(rowOff((y+d/4)<<1)+x+d%4, red)
+		}
+	}
+	flushText(true)
+}
+
+// nearestColor is the game palette index closest to the 6-bit (r, g, b).
+func nearestColor(r, g, b int) byte {
+	best, bd := 0, 1<<30
+	for i := 0; i < 256; i++ {
+		p := drv[offPalette+i*3:]
+		dr, dg, db := int(p[0])-r, int(p[1])-g, int(p[2])-b
+		if d := dr*dr + dg*dg + db*db; d < bd {
+			best, bd = i, d
+		}
+	}
+	return byte(best)
 }
 
 func drawWizardEye(force int) {
@@ -238,11 +274,13 @@ func drawWizardEye(force int) {
 		*gLightChanged = 0
 		refreshView()
 	}
-	if *gWizardEye == 0 && *gWizeyeShown != 0 {
+	// port addition: a Cartographer in the party keeps the minimap up without Wizard Eye
+	eye := *gWizardEye != 0 || partyHasSkill(4) != 0
+	if !eye && *gWizeyeShown != 0 {
 		closeWindows(1)
 		*gWizeyeShown = 0
 	}
-	if *gWizardEye == 0 {
+	if !eye {
 		return
 	}
 	if *gViewDirty == 0 && force == 0 {
@@ -353,6 +391,7 @@ func drawWizardEye(force int) {
 	dl[k] = -1
 	sprintf(buf, fmtP(gFmtSprites), adrDrawList)
 	wizEyeShow(buf)
+	wizEyeMonsters()
 }
 
 // viewAt: is (x, y) the cell at view position n for facing fac from (px, py)?

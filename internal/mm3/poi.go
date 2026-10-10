@@ -51,14 +51,20 @@ func automapPOIs(ox, oy int, seen *[16][16]byte, line []byte) bool {
 		}
 		return fmt.Sprintf("%d:%d:%d", gQuadrantMaps[idx], x&15, y&15)
 	}
+	yellow := nearestColor(63, 63, 0)
 	cursorHide() // the cursor is drawn into the offscreen: lift it off before drawing under it
 	for j := 0; j < 16; j++ {
 		for i := 0; i < 16; i++ {
 			if notes[key(i, j)] == "" {
 				continue
 			}
-			for d := 0; d < 9; d++ {
-				put(rowOff(uint16(0x1c+10+j*8+2+d/3)<<1)+uint16(0x50+i*10+3+d%3), glyphCol[1])
+			// a yellow frame around the whole 10x8 cell with a 4x2 bar in its middle
+			for y := 0; y < 8; y++ {
+				for x := 0; x < 10; x++ {
+					if y == 0 || y == 7 || x == 0 || x == 9 || (y >= 3 && y <= 4 && x >= 3 && x <= 6) {
+						put(rowOff(uint16(0x1c+10+j*8+y)<<1)+uint16(0x50+i*10+x), yellow)
+					}
+				}
 			}
 		}
 	}
