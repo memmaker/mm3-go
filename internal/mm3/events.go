@@ -303,9 +303,10 @@ func runEventScript() int {
 	}
 	// Port addition for the guild membership NPCs (SetChar, then TakeOrGive giving award 0-4):
 	// guildAward is that award while such a sale runs, guildLine its SetChar line.
-	// guildEligible: can act and not yet a member; guildNext is the award the next line gives.
+	// guildEligible: can act, a spell caster (the classes buildSpellList sells to) and not yet a
+	// member; guildNext is the award the next line gives.
 	guildAward, guildLine := -1, 0
-	guildEligible := func(c *Chr) bool { return charCannotAct(c) == 0 && c.Award[guildAward] == 0 }
+	guildEligible := func(c *Chr) bool { return charCannotAct(c) == 0 && c.Caster != 0 && c.Award[guildAward] == 0 }
 	anyGuildEligible := func() bool {
 		for k := 0; k < int(*gPartyCount); k++ {
 			if guildEligible(&gParty[k]) {
@@ -624,7 +625,7 @@ next:
 						goto done
 					}
 					if guildAward >= 0 && op2 == 0x0f && int(v2) == guildAward {
-						playSfx(0x34)
+						playSfx(0x36) // awardFoundLoot's gold "bling" (quest rewards)
 						img := loadGraphic("spfx9.icn")
 						sparklePortrait(img, who-1)
 						freeAndNull(&img)
