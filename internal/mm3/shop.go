@@ -321,6 +321,11 @@ func itemScreen(c *Chr, mode int) *Chr {
 		return &gParty[i]
 	}
 	orig = c
+	if mode == 2 { // the removed Identify button (hotspot 2) takes no clicks
+		w := ds[adrItemscrHotW+2]
+		ds[adrItemscrHotW+2] = 0
+		defer func() { ds[adrItemscrHotW+2] = w }()
+	}
 	if is7 = b2i(mode == 7); is7 != 0 {
 		mode = 0
 	}
@@ -421,9 +426,20 @@ list:
 		}
 	}
 	if drawn == 0 {
+		lbl2 := str(gItemActionLabels[2][mode])
+		// the Smithy's Identify (mode 2, button 2) is removed: no label, and its draw-list
+		// entry (x 159, frame 4) repeats button 1's, so nothing shows in its place
+		btn2 := ds[adrItemscrButtons+6+16 : adrItemscrButtons+6+24]
+		var saved [8]byte
+		copy(saved[:], btn2)
+		if mode == 2 {
+			lbl2 = nil
+			copy(btn2, ds[adrItemscrButtons+6+8:])
+		}
 		sprintf(gTmpText, "\002\005%04X\003c\v021\t019Up\t057Down\t095%s\t133%s\t171%s\t209%s\t286Exit", adrItemscrButtons,
-			str(gItemActionLabels[0][mode]), str(gItemActionLabels[1][mode]), str(gItemActionLabels[2][mode]), str(gItemActionLabels[3][mode]))
+			str(gItemActionLabels[0][mode]), str(gItemActionLabels[1][mode]), lbl2, str(gItemActionLabels[3][mode]))
 		openTextWindow(0, 0x65, 0x140, 0x2d, 0, 0x96, 4, 6, dsFar(adrTmpText))
+		copy(btn2, saved[:])
 		openTextWindow(0, 0, 0x140, 0x6c, 0, 0x96, 4, 6, dsFar(adrTextBuf))
 		drawn = 1
 	} else {
@@ -465,16 +481,12 @@ list:
 				break
 			}
 			k, next = 1, nCommon
-		case 'I':
-			if mode == 2 {
-				k, next = 2, nCommon
-			}
 		case 'M':
 			if mode == 1 {
 				k, next = 2, nCommon
 			}
 		case 'U', 2:
-			if k == 'U' && mode != 0 {
+			if (k == 'U' && mode != 0) || mode == 2 { // mode 2's Identify is removed
 				break
 			}
 			k, next = 2, nCommon
@@ -513,6 +525,13 @@ list:
 				k -= 0x2a
 			}
 			if mode == 3 {
+				break
+			}
+			if k < '1' && *gMouseButtons&2 != 0 { // right-click: the item's stats (port addition)
+				if tmp = k + top - 7; c.ItemID[tmp] != 0 {
+					showItemInfo(c, tmp)
+				}
+				next = nList
 				break
 			}
 			if tmp = k + top - 7; tmp == sel {
@@ -980,6 +999,28 @@ func getItemPrice(c *Chr, slot, mode, flags int) int32 {
 	return 0
 }
 
+// itemStatSuffix is a port addition: Angband-style stats after a weapon's or armor's name,
+// " (XdY) (+hit,+dmg)" and " [AC,+bonus]", with formatItemInfo's numbers (the material adds
+// to hit, to damage and to armor class). The bonus part is left out when it is +0.
+func itemStatSuffix(c *Chr, slot int) []byte {
+	id, mat := int(c.ItemID[slot]), c.ItemMat[slot]
+	var s [40]byte
+	switch {
+	case id > 0 && id < 0x22:
+		sprintf(s[:], " (%dd%d)", gWeaponDiceCount[id], gWeaponDieSides[id])
+		if h, d := int(int8(gMaterialToHit[mat])), int(int8(gMaterialDmgBonus[mat])); h|d != 0 {
+			sprintf(s[strlen(s[:]):], " (%+d,%+d)", h, d)
+		}
+	case id < 0x4a && gItemAcValues[id] != 0:
+		if b := int(int8(gMaterialAcBonus[mat])); b != 0 {
+			sprintf(s[:], " [%d,%+d]", gItemAcValues[id], b)
+		} else {
+			sprintf(s[:], " [%d]", gItemAcValues[id])
+		}
+	}
+	return append([]byte(nil), s[:strlen(s[:])+1]...)
+}
+
 func formatItemName(c *Chr, slot int, buf []byte, n int) []byte {
 	broken := c.ItemFlags[slot]&0xc0 != 0
 	pick := func(cond bool, s []byte) []byte {
@@ -1007,6 +1048,9 @@ func formatItemName(c *Chr, slot int, buf []byte, n int) []byte {
 		buf[3] = byte(toupper(int(buf[3])))
 	} else {
 		buf[0] = byte(toupper(int(buf[0])))
+	}
+	if !broken {
+		strcat(buf, itemStatSuffix(c, slot))
 	}
 	return buf
 }

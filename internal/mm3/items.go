@@ -188,22 +188,6 @@ func doItemAction(c *Chr, cat, slot, base, act int) int {
 					break
 				}
 				c.ItemFlags[slot] &= 0x7f
-			case 2:
-				price = fixIdentifyPrompt(c, slot, act, 1, cat)
-				if askYesNo(gTextBuf, 0) == 0 {
-					break
-				}
-				if payCost(0, uint32(price), 0) == 0 {
-					break
-				}
-				formatItemInfo(slot, c)
-				sprintf(gTextBuf, "\x03cIdentify Item\x03l\n\n\x0b012\x0c22%s\n\n%s", formatItemName(c, slot, gTmpText, 0), gDrawListB)
-				openTextWindow(0, 7, 0x140, 0x83, 0, 0x96, 4, 6, dsFar(adrTextBuf))
-				pushButtons()
-				setAnykeyButtons()
-				getInput()
-				popButtons()
-				closeWindows(1)
 			}
 		}
 	case 1:
@@ -306,6 +290,20 @@ func doItemAction(c *Chr, cat, slot, base, act int) int {
 out:
 	*gPortraitClickOn = 1
 	return 0
+}
+
+// showItemInfo is the Smithy's old Identify window, now free on a right-click in any item
+// list (port addition; the paid Identify service is gone).
+func showItemInfo(c *Chr, slot int) {
+	formatItemInfo(slot, c)
+	sprintf(gTextBuf, "\x03cItem Info\x03l\n\n\x0b012\x0c22%s\n\n%s", formatItemName(c, slot, gTmpText, 0), gDrawListB)
+	openTextWindow(0, 7, 0x140, 0x83, 0, 0x96, 4, 6, dsFar(adrTextBuf))
+	waitMouseRelease() // the right-click that opened it
+	pushButtons()
+	setAnykeyButtons()
+	getInput()
+	popButtons()
+	closeWindows(1)
 }
 
 func formatItemInfo(slot int, c *Chr) {
