@@ -120,7 +120,7 @@ func read(fd int, buf []byte, n int) int {
 	if h == nil {
 		return -1
 	}
-	r, _ := io.ReadFull(h, buf[:n])
+	r, _ := io.ReadFull(h, buf[:uint16(n)])
 	return r
 }
 
@@ -168,12 +168,12 @@ func fileSeek(off uint32) int {
 	return 0
 }
 
-// fileRead and fileWrite move n bytes (DOS reports a short count as success; so does this).
+// Counts are DOS cx: unsigned 16-bit. fileRead and fileWrite move n bytes (DOS reports a short count as success; so does this).
 func fileRead(buf []byte, n int) int {
 	if sysFile == nil {
 		return 6
 	}
-	if _, err := sysFile.Read(buf[:n]); err != nil && err != io.EOF {
+	if _, err := sysFile.Read(buf[:uint16(n)]); err != nil && err != io.EOF {
 		return 5
 	}
 	return 0
@@ -183,7 +183,7 @@ func fileWrite(buf []byte, n int) int {
 	if sysFile == nil {
 		return 6
 	}
-	if _, err := sysFile.Write(buf[:n]); err != nil {
+	if _, err := sysFile.Write(buf[:uint16(n)]); err != nil {
 		return 5
 	}
 	return 0

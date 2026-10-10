@@ -132,3 +132,6 @@ func dsAlloca(n int) int {
 }
 
 func dsFree(sp int) { dsSP = sp }
+
+// party is &g_party[i] with C pointer arithmetic: event scripts pass -1, which reads the bytes before the array.
+func party(i int) *Chr { return at[Chr](adrParty + i*0x12f) }

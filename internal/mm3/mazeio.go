@@ -150,6 +150,11 @@ func inMazeRect(x0, x1, y0, y1 int) bool {
 	return int(*gMouseX) >= x0 && int(*gMouseX) <= x1 && int(*gMouseY) >= y0 && int(*gMouseY) <= y1
 }
 
+// LoopRetraces is the minimum retraces per input-loop pass. The game has no animation timer: views animate
+// once per pass, as fast as the CPU runs (GOG's DOSBox: fixed 8000 cycles). ponytail: a fixed knob, not
+// measured per screen; calibrate against DOSBox if it still looks off.
+var LoopRetraces = 4
+
 // getInput is the main input loop: returns a key code or a button/region code.
 func getInput() int {
 	var flag, idx, i, k int
@@ -184,6 +189,9 @@ func getInput() int {
 			bounceDice()
 		} else if *gGameMode == 10 {
 			drawCharsheetCursor(1)
+		}
+		for i := 1; i < LoopRetraces; i++ {
+			waitRetrace()
 		}
 		if *gPartyDefeated != 0 {
 			return -1

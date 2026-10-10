@@ -109,7 +109,7 @@ loop:
 			k = -1
 			break loop
 		case 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf, 0xd0:
-			if k -= 0xc9; k < int(*gPartyCount) && charCannotAct(&gParty[k]) == 0 {
+			if k -= 0xc9; k < int(*gPartyCount) && charCannotAct(party(k)) == 0 {
 				break loop
 			}
 		}
@@ -249,7 +249,7 @@ func eventTakeGive(m1 int, v1 uint32, m2 int, v2 uint32, idx int) int {
 		idx &= 7
 		m1 = 0
 	}
-	p := &gParty[idx]
+	p := party(idx)
 	if m1 != 0 && v1 == 0 {
 		if v1 = askHowMuch(); v1 == 0 {
 			return 1
@@ -631,7 +631,7 @@ func confirmYesNo(quiet int) int {
 }
 
 func eventSetValue(mode int, v uint32, idx int) {
-	p := &gParty[idx]
+	p := party(idx)
 	b := uint8(v)
 	w := int16(v)
 	switch mode {
@@ -765,7 +765,7 @@ func eventSetValue(mode int, v uint32, idx int) {
 // uninitialised in the C where a case leaves it unset; here it is 0.
 func eventCompareValue(what int, val uint32, mode, idx int) int {
 	var v uint32
-	p := &gParty[idx]
+	p := party(idx)
 	u16 := func(x int) uint32 { return uint32(uint16(x)) }
 	switch what {
 	case 3:
@@ -1042,8 +1042,8 @@ func eventGiveMulti(m1 int, v1 uint32, m2 int, v2 uint32, m3 int, v3 uint32, idx
 		if randomRange(1, 4) == 1 {
 			damageParty(int(m.F314[10]), randomRange(0, 6), who)
 		}
-		if getThievery(&gParty[who])+randomRange(1, 20) >= int(m.LockLevel) {
-			c := &gParty[who]
+		if getThievery(party(who))+randomRange(1, 20) >= int(m.LockLevel) {
+			c := party(who)
 			c.Exp.Set(c.Exp.Get() + uint32(uint16(getCharLevel(c)*int(m.LockLevel)*10)))
 			*gGameMode = 7
 			sprintf(gTextBuf2, "\x03c\x0b010%s picks the lock!\n\nPress any key.", c.Name[:])
