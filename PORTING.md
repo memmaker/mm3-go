@@ -40,3 +40,16 @@ Port faithfully: same logic, same branches, same arithmetic. No redesign.
 ## Done means
 `go vet ./...` clean for your files, package compiles (with stubs), and a top comment
 `// Port of X.C: ...` as in ~/Projects/UltimaUnderworld/internal/uw.
+
+## Shared decisions (from batch 1)
+- Draw lists: a C `int *o` into g_draw_list is an int index into gDrawList; `dlPut(o, v)` = `*++o = v`,
+  `dlPutL(o, far)` = `*(long *)++o = p`. `fmtP(fmt)` rewrites Borland `%p` to `%04X` (pass the ds address).
+- Mistyped views: gRosterFar, gPowIconFar (far pointers); gMouseCursor/gInnIcons/gTilesetGfx/gPartyFaces/
+  gDseFaceGfx are int32 holding Fars; gDrawListB byte view; btnX/btnY/btnW/btnH read the near-pointer button tables;
+  monFrame/objFrame for near byte pointers.
+- Signatures: freeAndNull(*Far), loadCCFile(string) Far, getWorstCondition(*Chr) uint8,
+  getCharStat(*Chr, kind, flag int) int, getCharLevel(*Chr) int, testBit([]byte,int) int, setBit([]byte,bit,set int),
+  playMusic([]byte, uint8), readKey() int, getInput() int, equipItem(*Chr, slot int). Music buffers: sndStartMusic(Far).
+- Whoever rewrites MM3.CUR sets `ccCur = nil` afterwards.
+- Buffers passed to vga as Far must be package-level (farOf never frees). Index `ds[adr+k]` directly where the C
+  indexes negatively.
