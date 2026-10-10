@@ -301,6 +301,38 @@ func runEventScript() int {
 		}
 		*gEventObjOpened = 0
 	}
+	// Port addition for the guild membership NPCs (SetChar, then TakeOrGive giving award 0-4):
+	// guildAward is that award while such a sale runs, guildLine its SetChar line.
+	// guildEligible: can act and not yet a member; guildNext is the award the next line gives.
+	guildAward, guildLine := -1, 0
+	guildEligible := func(c *Chr) bool { return charCannotAct(c) == 0 && c.Award[guildAward] == 0 }
+	anyGuildEligible := func() bool {
+		for k := 0; k < int(*gPartyCount); k++ {
+			if guildEligible(&gParty[k]) {
+				return true
+			}
+		}
+		return false
+	}
+	guildNext := func() int {
+		for k := 0; k < int(*gEventCount); k++ {
+			e := &gEvents[k]
+			if e.X.Get() != x || e.Y.Get() != y || e.Line.Get() != line+1 ||
+				(e.Dir.Get() != int(*gPartyDir) && e.Dir.Get() != 4) {
+				continue
+			}
+			ip := int(e.IP.Get())
+			if ms(ip+5) != 12 {
+				return -1
+			}
+			_, ip2 := scriptValue(ms(ip+6), ip+7)
+			if v, _ := scriptValue(ms(ip2), ip2+1); ms(ip2) == 0x0f && v <= 4 {
+				return int(v)
+			}
+			return -1
+		}
+		return -1
+	}
 	// pay is the C's `pay:` (the ending): the score is the party's average experience in
 	// 10000s times 100000 plus the play time as hours*100 + minutes.
 	pay := func() {
@@ -591,6 +623,18 @@ next:
 					if eventTakeGive(ms(ip+6), v1, op2, v2, who-1) != 0 {
 						goto done
 					}
+					if guildAward >= 0 && op2 == 0x0f && int(v2) == guildAward {
+						playSfx(0x34)
+						img := loadGraphic("spfx9.icn")
+						sparklePortrait(img, who-1)
+						freeAndNull(&img)
+						drawPartyPortraits()
+						if anyGuildEligible() {
+							line = guildLine
+							goto next
+						}
+						guildAward = -1
+					}
 					if op2 != 0x4f {
 						break
 					}
@@ -606,7 +650,16 @@ next:
 							closeWindows(int(*gOpenWindows))
 							*gOpenWindows = 0
 						}
-						if who = selectPartyMember() + 1; who == 0 {
+						if guildAward = guildNext(); guildAward >= 0 {
+							guildLine = line
+							if !anyGuildEligible() {
+								goto done
+							}
+							who = selectPartyMemberIf(guildEligible) + 1
+						} else {
+							who = selectPartyMember() + 1
+						}
+						if who == 0 {
 							goto done
 						}
 						*gEventChar = 1

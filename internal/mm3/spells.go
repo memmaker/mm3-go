@@ -37,6 +37,18 @@ func charCanShoot(p *Chr) int {
 	return 0
 }
 
+// sparklePortrait plays spfx9.icn's four frames over party slot k's portrait.
+func sparklePortrait(img Far, k int) {
+	k = k*0x26 + 0xb
+	save := *gMonsterScanDelay
+	*gMonsterScanDelay = 0
+	for i := 0; i < 4; i++ {
+		drawIcon(img, i, k, 0x95, 0)
+		refreshView()
+	}
+	*gMonsterScanDelay = save
+}
+
 func spellHealChar(p *Chr, n int) {
 	switch getWorstCondition(p) {
 	case 13, 14, 15:
@@ -54,14 +66,7 @@ func spellHealChar(p *Chr, n int) {
 				break
 			}
 		}
-		k = k*0x26 + 0xb
-		save := *gMonsterScanDelay
-		*gMonsterScanDelay = 0
-		for i := 0; i < 4; i++ {
-			drawIcon(img, i, k, 0x95, 0)
-			refreshView()
-		}
-		*gMonsterScanDelay = save
+		sparklePortrait(img, k)
 	}
 	if p.HP.Get() > 0 {
 		p.Cond[12] = 0

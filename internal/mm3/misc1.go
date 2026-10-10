@@ -78,7 +78,12 @@ func indexEventScript() {
 	checkEventCount()
 }
 
-func selectPartyMember() int {
+func selectPartyMember() int { return selectPartyMemberIf(nil) }
+
+// selectPartyMemberIf is selectPartyMember that also refuses characters ok rejects (port
+// addition for the guild membership NPCs; nil accepts everyone, as in the original). A party
+// of one is still picked without asking, so the caller checks that one first.
+func selectPartyMemberIf(ok func(*Chr) bool) int {
 	var k int
 	if *gPartyCount == 1 {
 		return 0
@@ -109,7 +114,7 @@ loop:
 			k = -1
 			break loop
 		case 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf, 0xd0:
-			if k -= 0xc9; k < int(*gPartyCount) && charCannotAct(party(k)) == 0 {
+			if k -= 0xc9; k < int(*gPartyCount) && charCannotAct(party(k)) == 0 && (ok == nil || ok(party(k))) {
 				break loop
 			}
 		}
