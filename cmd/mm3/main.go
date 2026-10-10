@@ -15,9 +15,9 @@ func main() {
 	data := flag.String("data", "gamedata", "the game directory (with MM3.CC and MM3.CFG)")
 	saves := flag.String("saves", "", "where MM3.CUR and the saved games go (default: the user config directory)")
 	scale := flag.Int("scale", 3, "window scale")
-	pace := flag.Int("pace", mm3.LoopRetraces, "min. 70 Hz retraces per input-loop pass (animation speed: higher is slower)")
+	pace := flag.Int("pace", mm3.AnimRetraces, "70 Hz retraces per idle view animation frame (5: 386/486, 3: fast 486; higher is slower)")
 	flag.Parse()
-	mm3.LoopRetraces = *pace
+	mm3.AnimRetraces = *pace
 	mm3.GameDir = *data
 	mm3.SaveDir = *saves
 	if mm3.SaveDir == "" {

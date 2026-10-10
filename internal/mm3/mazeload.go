@@ -938,8 +938,8 @@ func findFreeSaveSlot() {
 }
 
 var (
-	optionsBuf     [100]byte // options_menu's buf: the window gets its far address
-	maxSavesText   = cs("You have reached the maximum number of saved games.  Delete old games not in use or reinstall MM3 in a new directory.")
+	optionsBuf   [100]byte // options_menu's buf: the window gets its far address
+	maxSavesText = cs("You have reached the maximum number of saved games.  Delete old games not in use or reinstall MM3 in a new directory.")
 )
 
 func optionsMenu(intro int) {

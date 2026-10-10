@@ -2,6 +2,8 @@
 // file I/O.
 package mm3
 
+import "time"
+
 import "os"
 
 // Views where mazeio.c types a global differently from ds_gen.go.
@@ -150,14 +152,27 @@ func inMazeRect(x0, x1, y0, y1 int) bool {
 	return int(*gMouseX) >= x0 && int(*gMouseX) <= x1 && int(*gMouseY) >= y0 && int(*gMouseY) <= y1
 }
 
-// LoopRetraces is the minimum retraces per input-loop pass. The game has no animation timer: views animate
-// once per pass, as fast as the CPU runs (GOG's DOSBox: fixed 8000 cycles). ponytail: a fixed knob, not
-// measured per screen; calibrate against DOSBox if it still looks off.
-var LoopRetraces = 4
+// AnimRetraces paces the idle view redraw, and with it every view animation (fountains, NPCs, gem). The
+// game has no animation timer: it redraws once per input-loop pass, as fast as the CPU allows. 5 retraces
+// (14 fps) is about a 386DX/486SX; a 486DX2 is nearer 3. Input and a changed view are not delayed.
+var AnimRetraces = 5
+
+var animLast time.Time
+
+// animDue reports whether the idle view redraw is due: always when the view changed or on getInput's first
+// pass (an input was just handled), else every AnimRetraces/70 s.
+func animDue() bool {
+	if now := time.Now(); *gViewDirty != 0 || now.Sub(animLast) >= time.Duration(AnimRetraces)*time.Second/70 {
+		animLast = now
+		return true
+	}
+	return false
+}
 
 // getInput is the main input loop: returns a key code or a button/region code.
 func getInput() int {
 	var flag, idx, i, k int
+	animLast = time.Time{}
 
 	for {
 		if *gMusicLoadPending != 0 {
@@ -179,19 +194,20 @@ func getInput() int {
 			}
 		}
 		if *gBtnXs == adrMazeBtnX || *gGameMode == 3 || *gGameMode == 6 || *gGameMode == 8 || *gGameMode == 7 || (*gGameMode == 2 && *gBtnXs == adrTrainBtnXs) {
-			refreshView()
-			if *gSpellAnimActive == 0 && *gMonScanPending != 0 {
-				*gMonScanPending = 0
-				moveMonsters()
+			if animDue() {
+				refreshView()
+				if *gSpellAnimActive == 0 && *gMonScanPending != 0 {
+					*gMonScanPending = 0
+					moveMonsters()
+				}
+				*gViewDirty = 0
+			} else {
+				waitRetrace() // input keeps its 70 Hz poll
 			}
-			*gViewDirty = 0
 		} else if *gGameMode == 4 {
 			bounceDice()
 		} else if *gGameMode == 10 {
 			drawCharsheetCursor(1)
-		}
-		for i := 1; i < LoopRetraces; i++ {
-			waitRetrace()
 		}
 		if *gPartyDefeated != 0 {
 			return -1
