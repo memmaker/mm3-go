@@ -20,9 +20,15 @@ See PORTING.md for how the C maps to Go.
 
 The WebAssembly build (`GOOS=js GOARCH=wasm go build ./cmd/mm3`) runs in
 [goplay](https://ruzzoli.de/goplay/) on the player's own files: `GOPLAY_DATA`
-names the game's folder (saves go beside it). `-import SRC` finds the
-folder holding MM3.CC anywhere under `SRC`, copies MM3.CC, MM3.CFG and any
-saved games to `-data`, and exits. When the page's MT-32 has its
+names the game's folder (saves go beside it). `-import SRC` finds MM3.CC in
+whatever the player dropped (`SRC` is the folder holding the dropped items):
+plain folders and loose files, zip files, CD-ROM images (ISO 9660, raw
+BIN/CUE in mode 1 or 2) and GOG installers (Inno Setup 5.5 to 6.4
+`setup_*.exe`, with any `setup_*-N.bin` slices beside it), nested in any
+order. It copies MM3.CC, MM3.CFG (writing a VGA one if missing) and any saved
+games from the folder MM3.CC lies in to `-data` under upper-case names, and
+exits. The search lives in `internal/gameimport`, written to be copied into
+other ports. When the page's MT-32 has its
 ROMs, goplay sets `GOPLAY_MT32` and music and sound effects play on it (munt
 compiled to WebAssembly, offered by the page as `goplayMT32`). Speech plays
 either way.
