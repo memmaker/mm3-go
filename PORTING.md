@@ -80,3 +80,31 @@ Port faithfully: same logic, same branches, same arithmetic. No redesign.
 - Helpers: `rosterAt(i) *Chr` (roster slot via gRosterFar), `mazeB(m, off) *uint8` (g_maps[m][off]);
   Far views of the long-typed globals: gPartyFacesF, gDseFaceGfxF, gTilesetGfxF, gSkyGfxF, gInnIconsF (cpanel/charinfo).
 - game_main_loop's cross-case gotos (turn/fwd/moved/turned) are an `act` state run after the key switch.
+
+## Shared decisions (shop/items/itemname/guild)
+- `curChr() *Chr` (spells.go) is `*g_cur_char`; set it with `*gCurChar = nearOf(c)`.
+- `w(p *uint8) bool` (itemname.go) is a wall flag's truth value; drawMazeView reuses scene.go's addNearMissiles
+  for the distance 3/2 missile loops (layer 0x300/0x200, x/y from gStepSoundToggle[2:]/[10:], [18:]/[26:]).
+- Signatures: getItemPrice(*Chr, slot, mode, flags) int32, fixIdentifyPrompt(...) int32, formatItemName(*Chr,
+  slot, buf []byte, n) []byte, itemScreen(*Chr, mode) *Chr, doItemAction(c, cat, slot, base, act) int,
+  getItemEquipCat(*Chr, id) int, spellListDialog(*Chr, mode) *Chr, spellSpCost/spellGoldCost(s, x) int,
+  finishCreateChar(cls, race, align, sex uint8, st []byte, *Chr) int, statColor(cur, max) int.
+- A C `%s` of a `struct chr *` is `bytesOf(c)` (the name, then the record if it is not terminated).
+- Callers that declare a callee with other arg types get the C's actual effect: guild's pay_cost(int, int, int,
+  int) passes `uint32(uint16(cost))`; shop's unsigned get_item_stat_bonus is added zero-extended to longs.
+- Spell entry points (spells.c) are stubbed as `spellXxx()` plus spellPayCost(*Chr, s) int,
+  spellRefundCost(*Chr, s), showCantCastEngaged(a), showNotEnoughToCast(a, b), charCanShoot(*Chr) int.
+
+## Shared decisions (building/combat/spells/ending/sys)
+- `randomRange(a, b)` (sys.go) is sys.asm's: its seed is the Go `randomState` (the asm keeps it in its code
+  segment), mixed with dosTime() (vga.go, int 21h ah=2Ch) by an adc16/sbb16 carry chain. Carry in = cmp a,b;
+  the carry into the last sbb is the one `sub cx,a` left (div keeps the flags, as on DOSBox).
+- `bldgAnimSeq []byte` (building.go) replaces the near pointer g_bldg_anim_seq: callers pass Go locals
+  (the town's, the smithy's), which buildingWaitInput animates after buildingEntryDialog returns.
+- `goto redraw` in a building loop = a labelled outer `for` (`continue redraw`, `break redraw` on ESC).
+- combat.c's views: monHitAnim/monHitFx/monElemFx ([]uint8), monElemSizes/monHitSizes ([]int16); g_mon_hp and
+  g_attack_type are unsigned there (uint16(...) at use). Far monster tables: `.U8(t)`, exp/gold `.U32(4t)`,
+  gems/max_hp `.U16(2t)`. Helpers: monType(m), curMonType(), monsAhead() (d0c slots in use), chrRes(c, k, j).
+- monster_turn's labels (all/rnd/chk/hit) are a state loop; jumps that re-enter a case become closures.
+- spells.go helpers for the C's copy-pasted bodies: spellAttack(dmg, type, scope, sfx, pow), spellCureCond,
+  spellBoost, spellHealPicked, spellItemScreen, spellSuppress, spellElementBlast (same statements, same order).
