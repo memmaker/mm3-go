@@ -563,6 +563,7 @@ func initWorkArchive() {
 		closeCurArchive()
 	}
 	close(open(str(*gStrWorkArchive), 0x8302, 0x180))
+	os.Remove(poiPath(str(*gStrWorkArchive), true)) // a new game starts without map notes
 	fail := func() { quitToDos() }
 	if fileOpen(str(*gStrWorkArchive)) != 0 {
 		fail()
@@ -610,6 +611,7 @@ func copyFile(from, to []byte) {
 	fwrite(gDrawListB, 1, int(rem), g)
 	fclose(g)
 	fclose(f)
+	copyPOIs(from, to)
 	ccCur = nil // MM3.CUR may have changed: ccLoad re-reads it
 	if *gArchiveOpen != 0 {
 		openCurArchive()

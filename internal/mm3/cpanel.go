@@ -649,8 +649,9 @@ func showAutomap() {
 	if partyHasSkill(6) != 0 {
 		dir = str(gDirectionNames[*gPartyDir])
 	}
-	sprintf(gTextBuf, "\x03c%s\x05%04X\x03l\v139\t000X = %d\x03r\t160Y = %d\x03c\t000%s",
-		str(gMapNamesFrom1[mn]), adrDrawList, *gPartyX, *gPartyY, dir)
+	var line [80]byte
+	sprintf(line[:], "\x03l\v139\t000X = %d\x03r\t160Y = %d\x03c\t000%s", *gPartyX, *gPartyY, dir)
+	sprintf(gTextBuf, "\x03c%s\x05%04X%s", str(gMapNamesFrom1[mn]), adrDrawList, line[:])
 	memset(gDrawListB, 0, 4000)
 	dl[0] = -1
 	*gDrawListImg = Far(*gTilesetGfx)
@@ -842,11 +843,15 @@ func showAutomap() {
 	}
 	dl[n] = -1
 	checkAutoListSize(n)
-	openTextWindow(0x48, 0x14, 0xb0, 0xa3, 0, 0x96, 4, 6, dsFar(adrTextBuf))
-	flushInput()
-	getInput()
+	for {
+		openTextWindow(0x48, 0x14, 0xb0, 0xa3, 0, 0x96, 4, 6, dsFar(adrTextBuf))
+		redraw := automapPOIs(int(ox), int(oy), &seen, line[:])
+		closeWindows(1)
+		if !redraw {
+			break
+		}
+	}
 	setMainButtons()
-	closeWindows(1)
 	waitMouseRelease()
 }
 
