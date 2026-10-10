@@ -77,7 +77,7 @@ var (
 )
 
 func dosOpen(name string, flags int) *os.File {
-	write := flags&(oWronly|oRdwr|oCreat|oTrunc) != 0
+	write := flags&(oWronly|oCreat|oTrunc) != 0 // O_RDWR on an existing file: wherever it is
 	p := dosPath(name, write)
 	f := 0
 	switch {

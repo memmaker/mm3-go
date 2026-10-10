@@ -685,12 +685,12 @@ func playIntro() {
 		*gTalkFramePos = 0
 		sndPlaySample(gCineVoices[i], int(gCineVoiceSizes[i]))
 		for {
-			s[0].Frame.Set(int(gIntroTalkFrames[i][*gTalkFramePos]))
+			s[0].Frame.Set(int(arr[uint8](adrIntroTalkFrames)[i*33+int(*gTalkFramePos)]))
 			draw()
-			introWaitTicks(int(gIntroTalkTimes[i][*gTalkFramePos]))
+			introWaitTicks(int(arr[uint16](adrIntroTalkTimes)[i*33+int(*gTalkFramePos)]))
 			for {
 				*gTalkFramePos++
-				if uint32(gIntroTalkTimes[i][*gTalkFramePos]) >= *gAnimTicks {
+				if uint32(arr[uint16](adrIntroTalkTimes)[i*33+int(*gTalkFramePos)]) >= *gAnimTicks {
 					break
 				}
 			}

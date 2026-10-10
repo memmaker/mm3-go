@@ -181,6 +181,7 @@ func sndPlaySample(p Far, n int) int {
 	case p == 0:
 		sndSampleOn = false
 	default:
+		n = int(uint16(n)) // the driver's count is an unsigned 16-bit register
 		_ = p.B()[:n]
 		sndSampleLen, sndSamplePos, sndSampleOn = n, 0, n > 0
 	}
