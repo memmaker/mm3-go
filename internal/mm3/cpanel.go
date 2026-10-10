@@ -410,7 +410,7 @@ top:
 			*gMusicOn ^= 1
 			if *gMusicOn != 0 {
 				*gMusicLoadPending = 0
-				sndPlayMusic(int32(*gMusicBuf))
+				sndStartMusic(*gMusicBuf) // the C passes the far pointer (the song case)
 				if *gSndDev5 != 0 {
 					sndTimer(0)
 				}

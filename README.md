@@ -10,4 +10,8 @@ Work in progress.
 go run ./cmd/mm3 -data /path/to/MM3
 ```
 
+Music and sound effects play on munt's MT-32 emulation (roland.drv's player): install libmt32emu
+(`brew install mt32emu` / your distro's package) and put the MT-32 ROMs (`mt32_ctrl_*.rom`, `mt32_pcm.rom`) in
+`roms/` (working directory or next to the binary) or pass `-roms DIR`. Without them the game runs silently.
+
 See PORTING.md for how the C maps to Go.
