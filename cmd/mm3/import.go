@@ -1,7 +1,10 @@
 package main
 
 import (
+	"image/png"
+
 	"errors"
+	"github.com/memmaker/mm3-go/internal/mm3"
 	"os"
 	"path"
 	"path/filepath"
@@ -46,7 +49,15 @@ func importGame(src, dst string) error {
 		cfg = cfg || n == "MM3.CFG"
 	}
 	if !cfg {
-		return os.WriteFile(filepath.Join(dst, "MM3.CFG"), []byte{0, 1, 0x20, 2}, 0o644)
+		if err := os.WriteFile(filepath.Join(dst, "MM3.CFG"), []byte{0, 1, 0x20, 2}, 0o644); err != nil {
+			return err
+		}
 	}
-	return nil
+	mm3.GameDir = dst // COVER.PNG, goplay's floppy label
+	f, err := os.Create(filepath.Join(dst, "COVER.PNG"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return png.Encode(f, mm3.Cover())
 }
