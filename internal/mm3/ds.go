@@ -115,3 +115,20 @@ func init() {
 		}
 	}
 }
+
+// dsSP is the C stack, which lived in DGROUP above the last global (SS = DS). A local the
+// game passes by near pointer (a draw list in "\x05%p", a struct spr1 button) must have a ds
+// address: dsAlloca reserves n zeroed bytes there; the function does `defer dsFree(dsSP)`
+// first (the argument is evaluated then), which pops them all on return.
+var dsSP = len(ds)
+
+func dsAlloca(n int) int {
+	dsSP -= n
+	if dsSP < 0xf800 {
+		panic("dsAlloca: stack overflow")
+	}
+	memset(ds[dsSP:], 0, n)
+	return dsSP
+}
+
+func dsFree(sp int) { dsSP = sp }

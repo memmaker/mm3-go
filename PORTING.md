@@ -53,3 +53,30 @@ Port faithfully: same logic, same branches, same arithmetic. No redesign.
 - Whoever rewrites MM3.CUR sets `ccCur = nil` afterwards.
 - Buffers passed to vga as Far must be package-level (farOf never frees). Index `ds[adr+k]` directly where the C
   indexes negatively.
+
+## Shared decisions (scene/events/misc1/stattext)
+- `b2i(bool) int` (scene.go) is a C comparison's value (`x ? 0 : 1` -> `b2i(x == 0)`).
+- Cell accessors (scene.go): getCellWalls/getCellWallsRegion return the masked u16 as a C int
+  (int16-extended); getCellFlags, setCellWall(x, y, k, v), isCellVisited, findLoadedMap, setPartyMapStart.
+- Event script (events.go): `ms(i)`/`mu(i)` = g_maze_script[i] signed/(u8); `mapText(n)` = g_map_text +
+  g_maze_text_offs[n]; `objD0c()` = &g_map_objects[g_obj_d0c - 1] via ds (index -1 when 0, as the C reads).
+  `runEventScript() int`. A C label jumped to from outside its block (`clear:`, `pay:`) is a closure.
+- misc1.go: event values are uint32 (`eventTakeGive(m1, v1 uint32, m2, v2 uint32, idx)`, eventSetValue,
+  eventCompareValue(what, val uint32, mode, idx) int, eventGiveMulti); `spellKind(cls)` is the
+  g_class_spells row; `confirmYesNo(quiet) int`, `selectPartyMember() int`, `askAnswer(mode, ans, msg []byte)`.
+- Literal C strings passed to vga as Far: a package-level `var xText = cs("...")` + farOf.
+- `checkWallListSize(o int)` takes the draw-list index; `gMonD1l1L` is g_mon_d1l1 as long[].
+- Stub signatures: damageParty(dmg, typ, who int), inputNumber(max, width) int32, inputText([]byte, max,
+  width) int, faceYesNoDialog(face, a, b []byte, mode, shown) int, visitInn() int, playEnding(uint32) int,
+  calcArmorClass(*Chr, base) int, calcMaxSp(*Chr) int, getThievery(*Chr) int, buildingWaitInput() int.
+
+## Shared decisions (cpanel/charinfo/mazeload/town)
+- C locals passed by near pointer (draw lists `\x05%04X`, sprite records) live on an emulated C stack in ds:
+  `defer dsFree(dsSP)` then `adr := dsAlloca(n)` (ds.go; region above 0xf800, zeroed).
+- `waitKey() int` (it returns bioskey(0)). Exp helpers getNextLevelExp/getExpToNextLevel/getTotalExp return int32.
+- Signatures: pushIcons(name string), askYesNo(msg []byte, flags) int, showMessage([]byte), loadTextTable([]byte),
+  payCost(kind int, amt uint32, who int) int, controlPanel() int, generateRandomItem(lvl, *Chr, slot),
+  exchangePartyMember(*int) *Chr, freeMazeResources(all int), gameMainLoop() int.
+- Helpers: `rosterAt(i) *Chr` (roster slot via gRosterFar), `mazeB(m, off) *uint8` (g_maps[m][off]);
+  Far views of the long-typed globals: gPartyFacesF, gDseFaceGfxF, gTilesetGfxF, gSkyGfxF, gInnIconsF (cpanel/charinfo).
+- game_main_loop's cross-case gotos (turn/fwd/moved/turned) are an `act` state run after the key switch.

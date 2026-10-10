@@ -441,7 +441,9 @@ func flushInput() {
 	waitMouseRelease()
 }
 
-func waitKey() {
+// waitKey returns bioskey(0)'s word: the C is void, but AX still holds it, and mazeload.c
+// declares it u8 (the ASCII byte) and uses it.
+func waitKey() int {
 	for {
 		vgaIdle1b()
 		getMouseState(gMouseX, gMouseY)
@@ -450,7 +452,7 @@ func waitKey() {
 		}
 	}
 	printWindowText(cs(""))
-	bioskey(0)
+	return bioskey(0)
 }
 
 func idleFrames(n int) {
