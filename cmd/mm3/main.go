@@ -21,7 +21,15 @@ func main() {
 	scale := flag.Int("scale", 3, "window scale")
 	pace := flag.Int("pace", mm3.AnimRetraces, "70 Hz retraces per idle view animation frame (5: 386/486, 3: fast 486; higher is slower)")
 	roms := flag.String("roms", defRoms, "the MT-32 ROM directory for music (default: roms/ in the working directory or next to the binary; none: silent)")
+	importFrom := flag.String("import", "", "goplay: find the game under this folder, copy it to -data, and exit")
 	flag.Parse()
+	if *importFrom != "" {
+		if err := importGame(*importFrom, *data); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	mm3.RomDir = romDir(*roms)
 	mm3.AnimRetraces = *pace
 	mm3.GameDir = *data

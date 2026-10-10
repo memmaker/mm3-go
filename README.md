@@ -20,7 +20,9 @@ See PORTING.md for how the C maps to Go.
 
 The WebAssembly build (`GOOS=js GOARCH=wasm go build ./cmd/mm3`) runs in
 [goplay](https://ruzzoli.de/goplay/) on the player's own files: `GOPLAY_DATA`
-names the game's folder (saves go beside it). When the page's MT-32 has its
+names the game's folder (saves go beside it). `-import SRC` finds the
+folder holding MM3.CC anywhere under `SRC`, copies MM3.CC, MM3.CFG and any
+saved games to `-data`, and exits. When the page's MT-32 has its
 ROMs, goplay sets `GOPLAY_MT32` and music and sound effects play on it (munt
 compiled to WebAssembly, offered by the page as `goplayMT32`). Speech plays
 either way.
