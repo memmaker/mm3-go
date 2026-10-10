@@ -9,7 +9,8 @@ import (
 
 // The MT-32 binding in the browser (see mt32.go): goplay's page loads munt as
 // mt32emu.wasm and offers it as goplayMT32, which picks the control and PCM ROM among
-// the files in romDir of the page's file system.
+// the files in romDir of the page's file system, a CM-32L (or MT-32 2.x) pair first:
+// MM3's hit, miss and kill sfx are drum keys only the CM-32L has.
 
 var mtJS js.Value
 
@@ -18,7 +19,7 @@ func mtOpen(romDir string) error {
 	if g.IsUndefined() || g.Get("ready").IsUndefined() || !g.Call("ready").Bool() {
 		return errors.New("the page has no MT-32 emulator")
 	}
-	if err := g.Call("open", romDir, outRate); err.Truthy() {
+	if err := g.Call("open", romDir, outRate, "pcm_cm32l"); err.Truthy() {
 		return errors.New(err.String())
 	}
 	mtJS = g

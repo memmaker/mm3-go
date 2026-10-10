@@ -536,7 +536,12 @@ func gameMainLoop() int {
 		case 7, 0x49:
 			showGameInfo()
 		case 0x20:
-			endPartyTurn()
+			// port addition: Space starts the cell's interaction (no turn passes);
+			// with none here it is the original wait
+			if !hasCellInteraction() {
+				endPartyTurn()
+			}
+			interacting = true
 			*gViewDirty = 1
 		case 8, 0x51:
 			showQuickRef()
@@ -585,7 +590,9 @@ func gameMainLoop() int {
 			}
 		}
 		if *gViewDirty != 0 {
-			switch r = runEventScript(); r {
+			r = runEventScript()
+			interacting = false
+			switch r {
 			case 1, 2:
 				goto out
 			}

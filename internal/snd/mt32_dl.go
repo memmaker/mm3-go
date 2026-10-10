@@ -21,15 +21,17 @@ var mt32Libs = []string{
 }
 
 var mtAPI struct {
-	loaded       bool
-	createCtx    func(handler, data uintptr) uintptr
-	addROMFile   func(ctx uintptr, name string) int32
-	setRate      func(ctx uintptr, rate float64)
-	openSynth    func(ctx uintptr) int32
-	playMsgNow   func(ctx uintptr, msg uint32)
-	playSysexNow func(ctx uintptr, sysex *byte, n uint32)
-	render       func(ctx uintptr, out *int16, frames uint32)
-	version      func() string
+	loaded        bool
+	createCtx     func(handler, data uintptr) uintptr
+	addROMFile    func(ctx uintptr, name string) int32
+	addMachineROM func(ctx uintptr, machine, name string) int32
+	freeCtx       func(ctx uintptr)
+	setRate       func(ctx uintptr, rate float64)
+	openSynth     func(ctx uintptr) int32
+	playMsgNow    func(ctx uintptr, msg uint32)
+	playSysexNow  func(ctx uintptr, sysex *byte, n uint32)
+	render        func(ctx uintptr, out *int16, frames uint32)
+	version       func() string
 }
 
 func loadMT32Lib() error {
@@ -48,6 +50,8 @@ func loadMT32Lib() error {
 	}
 	purego.RegisterLibFunc(&mtAPI.createCtx, lib, "mt32emu_create_context")
 	purego.RegisterLibFunc(&mtAPI.addROMFile, lib, "mt32emu_add_rom_file")
+	purego.RegisterLibFunc(&mtAPI.addMachineROM, lib, "mt32emu_add_machine_rom_file")
+	purego.RegisterLibFunc(&mtAPI.freeCtx, lib, "mt32emu_free_context")
 	purego.RegisterLibFunc(&mtAPI.setRate, lib, "mt32emu_set_stereo_output_samplerate")
 	purego.RegisterLibFunc(&mtAPI.openSynth, lib, "mt32emu_open_synth")
 	purego.RegisterLibFunc(&mtAPI.playMsgNow, lib, "mt32emu_play_msg_now")
@@ -61,7 +65,8 @@ func loadMT32Lib() error {
 var mtCtx uintptr
 
 // mtOpen starts the synth on the ROMs in romDir (munt picks the control and PCM ROM among
-// them).
+// them). A CM-32L (or MT-32 2.x) pair is taken first: MM3's hit, miss and kill sfx are rhythm keys
+// (78, 85, ...) that only the CM-32L's sound-effect drums have.
 func mtOpen(romDir string) error {
 	if err := loadMT32Lib(); err != nil {
 		return err
@@ -70,26 +75,34 @@ func mtOpen(romDir string) error {
 	if err != nil {
 		return fmt.Errorf("MT-32 ROMs: %v", err)
 	}
-	ctx := mtAPI.createCtx(0, 0)
-	if ctx == 0 {
-		return errors.New("mt32emu: no context")
-	}
 	names := []string{}
 	for _, e := range ents {
 		if !e.IsDir() {
-			names = append(names, e.Name())
+			names = append(names, filepath.Join(romDir, e.Name()))
 		}
 	}
 	sort.Strings(names)
-	for _, n := range names {
-		mtAPI.addROMFile(ctx, filepath.Join(romDir, n))
+	rc := int32(0)
+	for _, machine := range []string{"cm32l_1_02", "cm32l_1_00", "cm32ln_1_00", "mt32_2_07", "mt32_2_06", "mt32_2_04", "mt32_2_03", ""} {
+		ctx := mtAPI.createCtx(0, 0)
+		if ctx == 0 {
+			return errors.New("mt32emu: no context")
+		}
+		for _, n := range names {
+			if machine != "" {
+				mtAPI.addMachineROM(ctx, machine, n)
+			} else {
+				mtAPI.addROMFile(ctx, n)
+			}
+		}
+		mtAPI.setRate(ctx, outRate)
+		if rc = mtAPI.openSynth(ctx); rc == 0 {
+			mtCtx = ctx
+			return nil
+		}
+		mtAPI.freeCtx(ctx)
 	}
-	mtAPI.setRate(ctx, outRate)
-	if rc := mtAPI.openSynth(ctx); rc != 0 {
-		return fmt.Errorf("mt32emu %s: cannot open the synth with the ROMs in %s (code %d)", mtAPI.version(), romDir, rc)
-	}
-	mtCtx = ctx
-	return nil
+	return fmt.Errorf("mt32emu %s: cannot open the synth with the ROMs in %s (code %d)", mtAPI.version(), romDir, rc)
 }
 
 func mtMsg(msg uint32)   { mtAPI.playMsgNow(mtCtx, msg) }

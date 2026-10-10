@@ -389,6 +389,9 @@ next:
 			if *gObjD0c != 0 && *gLastMoveDir != *gPartyDir && e.Dir.Get() == int(*gPartyDir) {
 				*gLastMoveDir = *gPartyDir
 			}
+			if line == 0 && sp == -1 && !interacting && eventWaitsForSpace(e) {
+				continue // port addition: an interaction waits for Space
+			}
 			if *gObjD0c == 0 || *gLastMoveDir == *gPartyDir || *gGameMode == 9 {
 				*gGameMode = 9
 				ip = int(e.IP.Get())
@@ -1011,4 +1014,107 @@ func moveMonsters() {
 	if *gMonMissileActive != 0 {
 		doRangedAttacks()
 	}
+}
+
+// interacting is set while Space runs the party's cell events (port addition): only then do
+// interactions start (see eventWaitsForSpace); traps, ambushes and the rest still fire on
+// walking in.
+var interacting bool
+
+// hasCellInteraction: an event chain on the party's cell, facing its way, waits for Space.
+func hasCellInteraction() bool {
+	x, y, d := int(*gPartyX), int(*gPartyY), int(*gPartyDir)
+	for i := 0; i < int(*gEventCount); i++ {
+		e := &gEvents[i]
+		if e.X.Get() == x && e.Y.Get() == y && e.Line.Get() == 0 && (e.Dir.Get() == d || e.Dir.Get() == 4) &&
+			ms(int(e.IP.Get())+5) != 0 && eventWaitsForSpace(e) {
+			return true
+		}
+	}
+	return false
+}
+
+// eventWaitsForSpace (port addition): the event chain e starts (on the party's cell, facing
+// its way) only on Space when it is an interaction and the player can see there is
+// something: an object on the cell (chest, fountain, mirror...), or for an event tied to a
+// facing indoors, a wall there that is not plain (door, torch, locked or bashed door, the
+// special type 7). Everything else fires on walking in, as in the original.
+func eventWaitsForSpace(e *Evt) bool {
+	x, y, d := e.X.Get(), e.Y.Get(), int(*gPartyDir)
+	if !eventNeedsInteract(x, y, d) {
+		return false
+	}
+	for i := 0; i < int(*gObjCount); i++ {
+		if gMapObjects[i].X.Get() == x && gMapObjects[i].Y.Get() == y {
+			return true
+		}
+	}
+	if e.Dir.Get() == 4 || *gOutdoors != 0 {
+		return false
+	}
+	w := getCellWallsRegion(x, y, int(uint16(gViewWallMasks[d][2]))) >> uint(gViewWallShifts[d][2]) & 7
+	return w >= 2
+}
+
+// eventNeedsInteract: whether the event chain on (x, y) facing dir is an interaction with
+// the environment rather than something that happens to the party. It follows the chain in
+// line order (into CallEvent subroutines and back) to the first op that decides: a question
+// to the player (Yes/No, an NPC, a password, picking a character) makes it an interaction; a
+// trap or ambush (damage, monsters, a random jump), a move (teleport, stairs, a building
+// door), a door/sign caption or a chain that only gives or takes (treasure piles) does not.
+func eventNeedsInteract(x, y, dir int) bool {
+	find := func(x, y, line int) (int, bool) {
+		for i := 0; i < int(*gEventCount); i++ {
+			e := &gEvents[i]
+			if e.X.Get() == x && e.Y.Get() == y && (e.Dir.Get() == dir || e.Dir.Get() == 4) && e.Line.Get() == line {
+				return int(e.IP.Get()), true
+			}
+		}
+		return 0, false
+	}
+	var stack [][3]int
+	cx, cy, line := x, y, 0
+	for steps := 0; steps < 64; steps++ {
+		ip, ok := find(cx, cy, line)
+		if !ok {
+			if len(stack) == 0 {
+				break
+			}
+			t := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			cx, cy, line = t[0], t[1], t[2]+1
+			continue
+		}
+		switch ms(ip+5) - 1 { // the op as runEventScript's switch numbers it
+		case 4, 20, 31: // NPC, ConfirmWord, WhoWill
+			return true
+		case 14: // SetChar: 9+ asks who
+			if ms(ip+6) > 8 {
+				return true
+			}
+		case 7, 8, 9: // If: kind 0x2c is a Yes/No question
+			if ms(ip+6) == 0x2c {
+				return true
+			}
+		case 21, 32, 15, 22: // Damage, RndDamage, Spawn, JumpRnd
+			return false
+		case 6, 30, 16, 1, 2, 3: // teleports, town buildings, door and sign captions
+			return false
+		case 24: // CallEvent
+			if len(stack) < 8 {
+				stack = append(stack, [3]int{cx, cy, line})
+				cx, cy, line = ms(ip+6), ms(ip+7), ms(ip+8)
+				continue
+			}
+		case 25: // Return
+			if len(stack) > 0 {
+				t := stack[len(stack)-1]
+				stack = stack[:len(stack)-1]
+				cx, cy, line = t[0], t[1], t[2]+1
+				continue
+			}
+		}
+		line++
+	}
+	return false
 }
