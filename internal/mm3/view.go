@@ -230,6 +230,7 @@ func drawWizardEye(force int) {
 			*gViewDirty = 0
 			*gDimLevel = 4
 			for *gDimLevel > 0 {
+				paceFrame()
 				refreshView()
 				*gDimLevel--
 			}

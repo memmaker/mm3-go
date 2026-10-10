@@ -44,6 +44,7 @@ func sparklePortrait(img Far, k int) {
 	*gMonsterScanDelay = 0
 	for i := 0; i < 4; i++ {
 		drawIcon(img, i, k, 0x95, 0)
+		paceFrame()
 		refreshView()
 	}
 	*gMonsterScanDelay = save

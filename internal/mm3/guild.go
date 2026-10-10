@@ -498,6 +498,7 @@ func bounceDice() {
 		}
 		gDicePos[k+3] = int16(fr)
 	}
+	paceFrame()
 	sprintf(gTextBuf2, "\x03q\x05%04X", adrDiceSprites)
 	printWindowText(gTextBuf2)
 	idleFrames(3)

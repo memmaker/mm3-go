@@ -612,6 +612,7 @@ out:
 			flushInput()
 			k = 0
 			for {
+				paceFrame()
 				drawSprites(ds[adrDeathSpr:])
 				gDeathSpr.TopY.Set(gDeathSpr.TopY.Get() + 8)
 				gDeathSpr.BotY.Set(gDeathSpr.BotY.Get() - 4)

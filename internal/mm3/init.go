@@ -55,6 +55,7 @@ func doRangedAttacks() {
 	*gPowIconFar = loadGraphic(gostr(gTmpText))
 	playSfx(int(gMissileSounds[gMonDmgType.B()[gRangedAttackers[i]]]))
 	for *gPowIconFar != 0 {
+		paceFrame()
 		refreshView()
 	}
 	if *gGameMode != 2 {

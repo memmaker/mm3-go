@@ -157,7 +157,27 @@ func inMazeRect(x0, x1, y0, y1 int) bool {
 // (14 fps) is about a 386DX/486SX; a 486DX2 is nearer 3. Input and a changed view are not delayed.
 var AnimRetraces = 5
 
-var animLast time.Time
+var animLast, frameLast time.Time
+
+// paceFrame holds a frame-based animation to the AnimRetraces pace: the original drew its
+// frames as fast as a 386/486 could. Only animation loops call it (the building and NPC
+// faces, sparkles, spell flight, light fades, idleFrames, the creation dice, the death
+// screen); input-driven redraws stay immediate. It waits, yielding retraces, until
+// AnimRetraces/70 s have passed since the last paced frame.
+func paceFrame() {
+	for !frameDue() {
+		waitRetrace()
+	}
+}
+
+// frameDue is paceFrame without the wait: true (and the frame counted) once the pace allows.
+func frameDue() bool {
+	if time.Since(frameLast) < time.Duration(AnimRetraces)*time.Second/70 {
+		return false
+	}
+	frameLast = time.Now()
+	return true
+}
 
 // animDue reports whether the idle view redraw is due: always when the view changed or on getInput's first
 // pass (an input was just handled), else every AnimRetraces/70 s.
@@ -483,6 +503,7 @@ func idleFrames(n int) {
 	for {
 		getMouseState(gMouseX, gMouseY)
 		if *gBtnXs == adrMazeBtnX || *gGameMode == 3 {
+			paceFrame()
 			refreshView()
 			*gViewDirty = 0
 		}
@@ -500,6 +521,7 @@ func idleFramesOrKey(n int) {
 		r = getMouseState(gMouseX, gMouseY)
 		n--
 		if *gBtnXs == adrMazeBtnX || *gGameMode == 3 {
+			paceFrame()
 			refreshView()
 			*gViewDirty = 0
 		}

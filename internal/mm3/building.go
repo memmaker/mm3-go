@@ -22,6 +22,9 @@ func formatAmountK(v uint32, buf []byte) []byte {
 }
 
 func animateBuildingFace() {
+	if !frameDue() { // in the input loop: skip, don't wait, so clicks stay immediate
+		return
+	}
 	s := bldgSprites()
 	pos := int(*gBldgAnimPos)
 	seq := int(int8(bldgAnimSeq[pos]))
