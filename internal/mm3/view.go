@@ -167,6 +167,9 @@ func drawWizardEyeOutdoor() {
 		x = -4
 		for j := 0; j < 7; j++ {
 			x++
+			if !minimapKnown(px+x, py+y) {
+				continue
+			}
 			v = getCellWalls(px+x, py+y, 0x70) >> 4
 			lvl = wizEyeLvl(x, y)
 			dl[k] = gWizeyeColX[j]
@@ -203,16 +206,32 @@ func drawWizardEyeOutdoor() {
 			}
 		}
 	}
-	dl[k] = 0x1e
-	k++
-	dl[k] = 0x18
-	k++
-	k++
-	dl[k] = int16(*gPartyDir) + 0x13
-	k++
+	if partyHasSkill(6) != 0 { // port addition: the arrow needs Direction Sense
+		dl[k] = 0x1e
+		k++
+		dl[k] = 0x18
+		k++
+		k++
+		dl[k] = int16(*gPartyDir) + 0x13
+		k++
+	}
 	dl[k] = -1
 	sprintf(buf, fmtP(gFmtSprites), adrDrawList)
 	wizEyeShow(buf)
+	// the window keeps its last picture: black out the unexplored cells skipped above
+	cursorHide()
+	for i := 0; i < 7; i++ {
+		for j := 0; j < 7; j++ {
+			if minimapKnown(px+j-3, py+3-i) {
+				continue
+			}
+			x, y := win.left+uint16(gWizeyeColX[j]), win.top+uint16(gWizeyeRowY[i])
+			for d := uint16(0); d < 80; d++ {
+				put(rowOff((y+d/10)<<1)+x+d%10, 0)
+			}
+		}
+	}
+	flushText(true)
 	wizEyeMonsters()
 }
 
@@ -310,7 +329,7 @@ func drawWizardEye(force int) {
 		x = -4
 		for j := 0; j < 7; j++ {
 			x++
-			if getCellWalls(px+x, py+y, 0x7777) != 0x1111 {
+			if minimapKnown(px+x, py+y) && getCellWalls(px+x, py+y, 0x7777) != 0x1111 {
 				add(i, j, 0)
 			}
 		}
@@ -321,7 +340,7 @@ func drawWizardEye(force int) {
 		x = -4
 		for j := 0; j < 7; j++ {
 			x++
-			if getCellWalls(px+x, py+y, 0x7777) == 0x1111 {
+			if !minimapKnown(px+x, py+y) || getCellWalls(px+x, py+y, 0x7777) == 0x1111 {
 				continue
 			}
 			v = -1
@@ -376,23 +395,28 @@ func drawWizardEye(force int) {
 		x = -4
 		for j := 0; j < 7; j++ {
 			x++
-			if getCellWalls(px+x, py+y, 0x7777) == 0x1111 {
+			if !minimapKnown(px+x, py+y) || getCellWalls(px+x, py+y, 0x7777) == 0x1111 {
 				add(i, j, 1)
 			}
 		}
 	}
-	dl[k] = 0x20
-	k++
-	dl[k] = 0x1a
-	k++
-	k++
-	dl[k] = int16(*gPartyDir) + 14
-	k++
+	if partyHasSkill(6) != 0 { // port addition: the arrow needs Direction Sense
+		dl[k] = 0x20
+		k++
+		dl[k] = 0x1a
+		k++
+		k++
+		dl[k] = int16(*gPartyDir) + 14
+		k++
+	}
 	dl[k] = -1
 	sprintf(buf, fmtP(gFmtSprites), adrDrawList)
 	wizEyeShow(buf)
 	wizEyeMonsters()
 }
+
+// minimapKnown (port addition): without Wizard Eye the minimap shows only explored cells.
+func minimapKnown(x, y int) bool { return *gWizardEye != 0 || isCellVisited(x, y) != 0 }
 
 // viewAt: is (x, y) the cell at view position n for facing fac from (px, py)?
 func viewAt(fac, n, px, py, x, y int) bool {
