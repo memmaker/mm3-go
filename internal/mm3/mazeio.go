@@ -148,10 +148,6 @@ func readKey() int {
 	return toupper(k & 0xff)
 }
 
-func inMazeRect(x0, x1, y0, y1 int) bool {
-	return int(*gMouseX) >= x0 && int(*gMouseX) <= x1 && int(*gMouseY) >= y0 && int(*gMouseY) <= y1
-}
-
 // AnimRetraces paces the idle view redraw, and with it every view animation (fountains, NPCs, gem). The
 // game has no animation timer: it redraws once per input-loop pass, as fast as the CPU allows. 5 retraces
 // (14 fps) is about a 386DX/486SX; a 486DX2 is nearer 3. Input and a changed view are not delayed.
@@ -241,25 +237,9 @@ func getInput() int {
 		*gMouseButtons = int8(getMouseState(gMouseX, gMouseY))
 		if *gMouseButtons != 0 {
 			*gKeyRshift, *gKeyLshift, *gKeyCtrl, *gKeyAlt, *gKeyExtended = 0, 0, 0, 0, 0
-			if *gBtnXs == adrMazeBtnX && *gGameMode != 2 {
-				if inMazeRect(8, 0x3d, 8, 0x47) {
-					return 0xf0
-				}
-				if inMazeRect(0xaa, 0xda, 8, 0x47) {
-					return 0xf1
-				}
-				if inMazeRect(0x3e, 0xa9, 8, 0x47) {
-					return 0xf2
-				}
-				if inMazeRect(0x3e, 0xa9, 0x48, 0x7c) {
-					return 0xf3
-				}
-				if inMazeRect(8, 0x3d, 0x48, 0x7c) {
-					return 0xf4
-				}
-				if inMazeRect(0xaa, 0xda, 0x48, 0x7c) {
-					return 0xf5
-				}
+			if *gBtnXs == adrMazeBtnX && *gGameMode != 2 && *gMouseX >= 8 && *gMouseX <= 0xda && *gMouseY >= 8 && *gMouseY <= 0x7c {
+				waitMouseRelease()
+				return 0x20 // port addition: a click on the 3D view is Space
 			}
 			i = hitTestPortrait()
 			if i != 0 {
@@ -338,24 +318,7 @@ func getInput() int {
 				drawIcon(*gCurIcons, 0, int(gMazeBtnX[0]), int(gMainBtnYc[0]), 0)
 			}
 		}
-		k = 0
-		if *gBtnXs == adrMazeBtnX && *gGameMode != 2 {
-			for _, r := range [...]struct{ x0, x1, y0, y1, cur, ret int }{
-				{8, 0x3d, 8, 0x47, 6, 0xf0}, {0xaa, 0xda, 8, 0x47, 5, 0xf1}, {0x3e, 0xa9, 8, 0x47, 1, 0xf2},
-				{0x3e, 0xa9, 0x48, 0x7c, 2, 0xf3}, {8, 0x3d, 0x48, 0x7c, 4, 0xf4}, {0xaa, 0xda, 0x48, 0x7c, 3, 0xf5},
-			} {
-				if inMazeRect(r.x0, r.x1, r.y0, r.y1) {
-					setMouseCursor(r.cur, uint32(*gMouseCursor))
-					if getMouseState(gMouseX, gMouseY) != 0 {
-						return r.ret
-					}
-					k++
-				}
-			}
-		}
-		if k == 0 {
-			setMouseCursor(0, uint32(*gMouseCursor))
-		}
+		setMouseCursor(0, uint32(*gMouseCursor))
 		if *gMouseButtons != 0 {
 			if *gGameMode == 0x56 || *gGameMode == 4 {
 				return 0x56

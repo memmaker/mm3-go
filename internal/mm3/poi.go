@@ -35,9 +35,9 @@ func copyPOIs(from, to []byte) {
 }
 
 // automapPOIs runs the open automap: draws the note markers, shows a hovered note's label in
-// place of the coordinate line, and waits for a key or click. True when the map should be
-// reopened (a note was edited).
-func automapPOIs(ox, oy int, seen *[16][16]byte, line []byte) bool {
+// place of the coordinate line, and waits for a key or click. A note edit redraws the markers
+// in place over a saved copy of the map instead of reopening the window (that flashed).
+func automapPOIs(ox, oy int, seen *[16][16]byte, line []byte) {
 	notes := loadPOIs()
 	carto := partyHasSkill(4) != 0
 	px, py := int(*gPartyX), int(*gPartyY)
@@ -52,30 +52,46 @@ func automapPOIs(ox, oy int, seen *[16][16]byte, line []byte) bool {
 		return fmt.Sprintf("%d:%d:%d", gQuadrantMaps[idx], x&15, y&15)
 	}
 	yellow := nearestColor(63, 63, 0)
-	cursorHide() // the cursor is drawn into the offscreen: lift it off before drawing under it
-	for j := 0; j < 16; j++ {
-		for i := 0; i < 16; i++ {
-			if notes[key(i, j)] == "" {
-				continue
+	at := func(i, j, x, y int) uint16 { return rowOff(uint16(0x1c+10+j*8+y)<<1) + uint16(0x50+i*10+x) }
+	var bare [16 * 8][16 * 10]byte // the map without markers, to erase a removed one
+	cursorHide()                   // the cursor is drawn into the offscreen: lift it off before drawing under it
+	for y := range bare {
+		for x := range bare[y] {
+			bare[y][x] = screen[at(0, 0, x, y)]
+		}
+	}
+	markers := func() {
+		cursorHide()
+		for y := range bare {
+			for x := range bare[y] {
+				put(at(0, 0, x, y), bare[y][x])
 			}
-			// a yellow frame around the whole 10x8 cell with a 4x2 bar in its middle
-			for y := 0; y < 8; y++ {
-				for x := 0; x < 10; x++ {
-					if y == 0 || y == 7 || x == 0 || x == 9 || (y >= 3 && y <= 4 && x >= 3 && x <= 6) {
-						put(rowOff(uint16(0x1c+10+j*8+y)<<1)+uint16(0x50+i*10+x), yellow)
+		}
+		for j := 0; j < 16; j++ {
+			for i := 0; i < 16; i++ {
+				if notes[key(i, j)] == "" {
+					continue
+				}
+				// a yellow frame around the whole 10x8 cell with a 4x2 bar in its middle
+				for y := 0; y < 8; y++ {
+					for x := 0; x < 10; x++ {
+						if y == 0 || y == 7 || x == 0 || x == 9 || (y >= 3 && y <= 4 && x >= 3 && x <= 6) {
+							put(at(i, j, x, y), yellow)
+						}
 					}
 				}
 			}
 		}
+		flushText(true)
 	}
-	flushText(true)
+	markers()
 	flushInput()
 	shown := ""
 	for {
 		b := getMouseState(gMouseX, gMouseY)
 		if bioskey(1) != 0 {
 			bioskey(0)
-			return false
+			return
 		}
 		mx, my := int(*gMouseX)-0x50, int(*gMouseY)-0x1c-10
 		k := ""
@@ -107,12 +123,13 @@ func automapPOIs(ox, oy int, seen *[16][16]byte, line []byte) bool {
 				savePOIs(notes)
 			}
 			closeWindows(1)
-			return true
 		case b&2 != 0 && notes[k] != "":
 			delete(notes, k)
 			savePOIs(notes)
-			return true
+		default:
+			return
 		}
-		return false
+		markers()
+		shown = "\x00" // reprint the hovered label
 	}
 }

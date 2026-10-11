@@ -843,14 +843,9 @@ func showAutomap() {
 	}
 	dl[n] = -1
 	checkAutoListSize(n)
-	for {
-		openTextWindow(0x48, 0x14, 0xb0, 0xa3, 0, 0x96, 4, 6, dsFar(adrTextBuf))
-		redraw := automapPOIs(int(ox), int(oy), &seen, line[:])
-		closeWindows(1)
-		if !redraw {
-			break
-		}
-	}
+	openTextWindow(0x48, 0x14, 0xb0, 0xa3, 0, 0x96, 4, 6, dsFar(adrTextBuf))
+	automapPOIs(int(ox), int(oy), &seen, line[:])
+	closeWindows(1)
 	setMainButtons()
 	waitMouseRelease()
 }
