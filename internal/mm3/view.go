@@ -235,15 +235,23 @@ func drawWizardEyeOutdoor() {
 	wizEyeMonsters()
 }
 
-// wizEyeMonsters (port addition): with the Wizard Eye spell up, a red dot marks each cell of
+// wizEyeMonsters (port addition): marks the party with a red X when there is no arrow; with the Wizard Eye spell up, a red dot marks each cell of
 // the minimap's 7x7 that holds live monsters. The minimap itself only needs a Cartographer.
 func wizEyeMonsters() {
+	red := nearestColor(63, 0, 0)
+	cursorHide() // the cursor is drawn into the offscreen: lift it off before drawing under it
+	if partyHasSkill(6) == 0 { // no Direction Sense, no arrow: a red X marks the party
+		x, y := win.left+uint16(gWizeyeColX[3])+1, win.top+uint16(gWizeyeRowY[3])
+		for d := uint16(0); d < 8; d++ {
+			put(rowOff((y+d)<<1)+x+d, red)
+			put(rowOff((y+d)<<1)+x+7-d, red)
+		}
+	}
 	if *gWizardEye == 0 {
+		flushText(true)
 		return
 	}
 	px, py := int(*gPartyX), int(*gPartyY)
-	red := nearestColor(63, 0, 0)
-	cursorHide() // the cursor is drawn into the offscreen: lift it off before drawing under it
 	for m := 0; m < int(*gMonCount); m++ {
 		dx, dy := int(gMonX[m])-px, int(gMonY[m])-py
 		if uint16(gMonY[m]) >= 0x20 || gMonVisible[m] == 0 || dx < -3 || dx > 3 || dy < -3 || dy > 3 {
