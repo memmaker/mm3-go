@@ -26,6 +26,8 @@ package mm3
 //	f0..fe end                         f0..fe end
 //	7, d, e: nothing
 
+import "github.com/memmaker/mm3-go/internal/snd"
+
 const (
 	rMusicOn   = 0x15
 	rSfxOn     = 0x16
@@ -255,7 +257,12 @@ run:
 			}
 			r.noteOff(ch)
 			m[rNote+ch] = k & 0x7f
-			r.msg(0x91+byte(ch), k&0x7f, m[rVelocity+ch])
+			// the desk's fader: music and sfx share the synth, so their notes are scaled
+			kind := "music"
+			if sfx {
+				kind = "sfx"
+			}
+			r.msg(0x91+byte(ch), k&0x7f, byte(float64(m[rVelocity+ch])*snd.Volume(kind)+0.5))
 		case 0xa:
 			if !sfx {
 				si++

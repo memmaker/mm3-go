@@ -135,11 +135,12 @@ func (Stream) Read(b []byte) (int, error) {
 			}
 		}
 	}
+	sg := Volume("sfx")
 	for f := 0; f < frames; f++ {
 		l, r := int(out[f*2]), int(out[f*2+1])
 		if speech != nil {
 			if i := int(speechF); i < len(speech) {
-				v := (int(speech[i]) - 128) << 7
+				v := int(float64((int(speech[i])-128)<<7) * sg)
 				l, r = l+v, r+v
 				speechF += speechD
 			} else {
