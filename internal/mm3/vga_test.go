@@ -51,3 +51,38 @@ func TestVGAProtectionWindow(t *testing.T) {
 		t.Errorf("%d pixels differ", bad)
 	}
 }
+
+// The hardware cursor's picture is the one the driver draws into the offscreen.
+func TestHardwareCursorPicture(t *testing.T) {
+	if os.Getenv("MM3_DATA") == "" {
+		t.Skip("MM3_DATA unset")
+	}
+	GameDir = os.Getenv("MM3_DATA")
+	openCCArchive()
+	waitRetrace = func() {}
+	vgaInit()
+	img := Far(loadGraphic("mouse.icn"))
+	g := segBytes(img.Seg())
+	curFrame = 2
+	hardwareCursor(g)
+	if frame.CursorW < 4 || frame.CursorH < 4 {
+		t.Fatalf("cursor %dx%d", frame.CursorW, frame.CursorH)
+	}
+	for o := range screen {
+		screen[o] = 7
+	}
+	drawFrame(g, curFrame, 0, 0, 0)
+	opaque := 0
+	for y := range frame.CursorH {
+		for x := range frame.CursorW {
+			i := y*frame.CursorW + x
+			if frame.CursorMask[i] {
+				opaque++
+				if screen[y*320+x] != frame.Cursor[i] {
+					t.Fatalf("(%d, %d): %d, drawn %d", x, y, frame.Cursor[i], screen[y*320+x])
+				}
+			}
+		}
+	}
+	t.Logf("%dx%d, %d opaque pixels", frame.CursorW, frame.CursorH, opaque)
+}

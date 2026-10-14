@@ -37,7 +37,8 @@ type Frame struct {
 	CursorHotX int
 	CursorHotY int
 	CursorOn   bool
-	CursorAtX  int // where the game's cursor is, in screen pixels (top-down)
+	CursorMask []bool // if set, where Cursor is opaque (colour 0 included)
+	CursorAtX  int    // where the game's cursor is, in screen pixels (top-down)
 	CursorAtY  int
 }
 
@@ -80,7 +81,9 @@ func Run(title string, scale int, gameMain func()) error {
 	ebiten.SetWindowSize(ScreenW*scale, ScreenH*scale*6/5)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetTPS(TPS)
-	ebiten.SetCursorMode(ebiten.CursorModeHidden)
+	if !HardwareCursor {
+		ebiten.SetCursorMode(ebiten.CursorModeHidden) // the game draws its own pointer
+	}
 	go func() {
 		<-tick
 		defer func() {
@@ -141,7 +144,9 @@ func (g *game) Draw(screen *ebiten.Image) {
 	for i, c := range f.Pix[:ScreenW*ScreenH] {
 		copy(pix[i*4:i*4+4], lut[c][:])
 	}
-	if f.CursorOn && f.Cursor != nil {
+	if HardwareCursor {
+		g.showCursor(f, &lut)
+	} else if f.CursorOn && f.Cursor != nil {
 		for y := 0; y < f.CursorH; y++ {
 			sy := f.CursorAtY - f.CursorHotY + y
 			if sy < 0 || sy >= ScreenH {
@@ -184,6 +189,28 @@ func (g *game) Draw(screen *ebiten.Image) {
 func (g *game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	s := ebiten.Monitor().DeviceScaleFactor()
 	return int(float64(outsideWidth) * s), int(float64(outsideHeight) * s)
+}
+
+// showCursor makes the frame's cursor the hardware cursor, scaled as the picture is.
+func (g *game) showCursor(f *Frame, lut *[256][4]byte) {
+	if !f.CursorOn || f.Cursor == nil || g.scaleX == 0 {
+		setCursor(nil, 0, 0)
+		return
+	}
+	// the cursor image is in CSS pixels, the picture's scale in device pixels
+	dpr := ebiten.Monitor().DeviceScaleFactor()
+	sx, sy := g.scaleX/dpr, g.scaleY/dpr
+	w, h := int(float64(f.CursorW)*sx), int(float64(f.CursorH)*sy)
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			i := int(float64(y)/sy)*f.CursorW + int(float64(x)/sx)
+			if c := f.Cursor[i]; c != 0 || f.CursorMask != nil && f.CursorMask[i] {
+				copy(img.Pix[img.PixOffset(x, y):], lut[c][:])
+			}
+		}
+	}
+	setCursor(img, int(float64(f.CursorHotX)*sx), int(float64(f.CursorHotY)*sy))
 }
 
 // Exit ends the program once the game goroutine returns.

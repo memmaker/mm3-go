@@ -410,12 +410,16 @@ func readMouse() {
 }
 
 // cursorShow (0x14b2) reads the mouse, saves the offscreen under the cursor and draws it.
+// With a hardware cursor the host shows the pointer, so the offscreen is left alone.
 func cursorShow() {
 	if !mouseOn {
 		return
 	}
 	mouseOldX, mouseOldY = mouseX, mouseY
 	readMouse()
+	if host.HardwareCursor {
+		return
+	}
 	curSaveX, curSaveRow = mouseX, mouseY<<1
 	n := (curW + 1) >> 1 * 2
 	curSave = curSave[:0]
@@ -435,7 +439,7 @@ func cursorShow() {
 
 // cursorHide (0x1534) puts back the offscreen under the cursor.
 func cursorHide() {
-	if !mouseOn {
+	if !mouseOn || host.HardwareCursor {
 		return
 	}
 	n := (curW + 1) >> 1 * 2
@@ -457,7 +461,7 @@ func cursorHide() {
 
 // cursorFlush (0x1572) shows the cursor's old and new rectangles.
 func cursorFlush() {
-	if !mouseOn {
+	if !mouseOn || host.HardwareCursor {
 		return
 	}
 	copyRect(mouseOldX, mouseOldY, curOldH, curOldW)
@@ -479,6 +483,9 @@ func setMouseCursor(frame int, cur uint32) {
 	g := segBytes(img.Seg())
 	c := rd16(g, curFrame)
 	curW, curH = rd16(g, c+2), rd16(g, c+6)
+	if host.HardwareCursor {
+		hardwareCursor(g)
+	}
 	cursorShow()
 	cursorFlush()
 }
@@ -491,6 +498,41 @@ func clearScreen() {
 	}
 	mouseOn = false
 	curSaveX = 0
+	frame.CursorOn = false
+}
+
+// hardwareCursor hands the cursor's frame of g to the host as its pointer: drawn twice
+// into a scratch offscreen, cleared to 0 and to 255, it is opaque where both agree.
+func hardwareCursor(g []byte) {
+	const size = 64
+	var draws [2][]byte
+	saved := screen
+	for i, bg := range []byte{0, 255} {
+		screen = make([]byte, len(saved))
+		for o := range screen {
+			screen[o] = bg
+		}
+		drawFrame(g, curFrame, 0, 0, 0)
+		draws[i] = screen
+	}
+	screen = saved
+	pix, mask := make([]byte, size*size), make([]bool, size*size)
+	w, h := 1, 1
+	for y := range size {
+		for x := range size {
+			if o := y*320 + x; draws[0][o] == draws[1][o] {
+				pix[y*size+x], mask[y*size+x] = draws[0][o], true
+				w, h = max(w, x+1), max(h, y+1)
+			}
+		}
+	}
+	frame.Cursor, frame.CursorMask = make([]byte, w*h), make([]bool, w*h)
+	for y := range h {
+		copy(frame.Cursor[y*w:], pix[y*size:y*size+w])
+		copy(frame.CursorMask[y*w:], mask[y*size:y*size+w])
+	}
+	frame.CursorW, frame.CursorH, frame.CursorHotX, frame.CursorHotY = w, h, 0, 0
+	frame.CursorOn = true
 }
 
 // getMouseState (0x1456) moves the cursor, waits for a retrace and returns the buttons and
