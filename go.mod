@@ -17,6 +17,4 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 )
 
-require github.com/memmaker/opl2 v0.0.0
-
-replace github.com/memmaker/opl2 => ../opl2
+require github.com/memmaker/opl2 v0.2.0
