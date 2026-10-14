@@ -10,9 +10,16 @@ Work in progress.
 go run ./cmd/mm3 -data /path/to/MM3
 ```
 
-Music and sound effects play on munt's MT-32 emulation (roland.drv's player): install munt's libmt32emu
-(build it from munt or use a package) and put the MT-32 ROMs (`mt32_ctrl_*.rom`, `mt32_pcm.rom`) in
-`roms/` (working directory or next to the binary) or pass `-roms DIR`. Without them the game runs silently.
+Music and sound effects play on munt's MT-32 emulation (roland.drv's player, preferring a CM-32L, whose
+extra drum sounds the effects use): install munt's libmt32emu (build it from munt or use a package) and put
+the MT-32 ROMs (`mt32_ctrl_*.rom`, `mt32_pcm.rom`, or the CM-32L's) in `roms/` (working directory or next to
+the binary) or pass `-roms DIR`. Without them they play on an emulated AdLib (adlib.drv's player on
+[github.com/memmaker/opl2](https://github.com/memmaker/opl2)). Speech plays either way.
+
+Both drivers are ported to Go (internal/mm3/roland.go, adlib.go). Their effect scripts and note tables are
+generated from the drivers in MM3.CC: `MM3_DATA=/path/to/MM3 go generate ./internal/mm3`
+(cmd/rolanddata, cmd/adlibdata). Until opl2's `Resampler.Mix` is tagged, `../opl2` must sit beside this
+repository (go.mod's `replace`).
 
 See PORTING.md for how the C maps to Go.
 
@@ -30,5 +37,5 @@ games from the folder MM3.CC lies in to `-data` under upper-case names, and
 exits. The search lives in `internal/gameimport`, written to be copied into
 other ports. When the page's MT-32 has its
 ROMs, goplay sets `GOPLAY_MT32` and music and sound effects play on it (munt
-compiled to WebAssembly, offered by the page as `goplayMT32`). Speech plays
-either way.
+compiled to WebAssembly, offered by the page as `goplayMT32`); otherwise on the
+AdLib. Speech plays either way.

@@ -19,8 +19,11 @@ func mtOpen(romDir string) error {
 	if g.IsUndefined() || g.Get("ready").IsUndefined() || !g.Call("ready").Bool() {
 		return errors.New("the page has no MT-32 emulator")
 	}
-	if err := g.Call("open", romDir, outRate, "pcm_cm32l"); err.Truthy() {
-		return errors.New(err.String())
+	// the new generation first (MM3's combat sfx are drum keys only the CM-32L has), else the old
+	if err := g.Call("open", romDir, outRate, "new"); err.Truthy() {
+		if g.Call("open", romDir, outRate, "old").Truthy() {
+			return errors.New(err.String())
+		}
 	}
 	mtJS = g
 	return nil

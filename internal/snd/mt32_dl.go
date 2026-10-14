@@ -64,9 +64,10 @@ func loadMT32Lib() error {
 
 var mtCtx uintptr
 
-// mtOpen starts the synth on the ROMs in romDir (munt picks the control and PCM ROM among
-// them). A CM-32L (or MT-32 2.x) pair is taken first: MM3's hit, miss and kill sfx are rhythm keys
-// (78, 85, ...) that only the CM-32L's sound-effect drums have.
+// mtOpen starts the synth on the ROMs in romDir: the first machine of mtMachines whose
+// control and PCM ROM are both there, else whatever pair munt finds. A CM-32L (or MT-32
+// 2.x) pair comes first: MM3's hit, miss and kill sfx are rhythm keys (78, 85, ...) that
+// only the CM-32L's sound-effect drums have.
 func mtOpen(romDir string) error {
 	if err := loadMT32Lib(); err != nil {
 		return err
@@ -83,7 +84,7 @@ func mtOpen(romDir string) error {
 	}
 	sort.Strings(names)
 	rc := int32(0)
-	for _, machine := range []string{"cm32l_1_02", "cm32l_1_00", "cm32ln_1_00", "mt32_2_07", "mt32_2_06", "mt32_2_04", "mt32_2_03", ""} {
+	for _, machine := range append(mtMachines, "") {
 		ctx := mtAPI.createCtx(0, 0)
 		if ctx == 0 {
 			return errors.New("mt32emu: no context")
@@ -104,6 +105,10 @@ func mtOpen(romDir string) error {
 	}
 	return fmt.Errorf("mt32emu %s: cannot open the synth with the ROMs in %s (code %d)", mtAPI.version(), romDir, rc)
 }
+
+// mtMachines are munt's machine ids, best first: the CM-32L and the MT-32 2.x,
+// then the original MT-32.
+var mtMachines = []string{"cm32l_1_02", "cm32l_1_00", "cm32ln_1_00", "mt32_2_07", "mt32_2_06", "mt32_2_04", "mt32_2_03", "mt32_1_07", "mt32_1_06", "mt32_1_05", "mt32_1_04", "mt32_bluer"}
 
 func mtMsg(msg uint32)   { mtAPI.playMsg(mtCtx, msg) }
 func mtSysex(msg []byte) { mtAPI.playSysex(mtCtx, &msg[0], uint32(len(msg))) }

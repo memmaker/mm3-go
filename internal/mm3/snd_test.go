@@ -25,14 +25,17 @@ func TestSndTimer(t *testing.T) {
 	if sndSampleOn {
 		t.Fatal("sample still playing")
 	}
-	sndMusicOn = true
+	a := newAdlib(func(int, byte) {})
+	sound = a
+	defer func() { sound = nil }()
+	a.startSong([]byte{acWait*16 + 1, 200, acLoop})
 	sndPlayMusic(0xc0 << 16)
 	n := 0
 	for sndPlayMusic(-1) != 0 {
 		sndTickIRQ()
 		n++
 	}
-	if sndMusicOn || n < 168 || n > 172 {
+	if a.musicOn || n < 168 || n > 172 {
 		t.Fatalf("fade took %d ticks", n)
 	}
 }

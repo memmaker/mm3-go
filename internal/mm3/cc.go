@@ -309,3 +309,16 @@ func lzhuf(d []byte) []byte {
 	}
 	return out[:n]
 }
+
+// ReadCC returns the file name from the MM3.CC in dir, decompressed (for the tools).
+func ReadCC(dir, name string) ([]byte, error) {
+	a, err := openCC(gamePath(dir, "mm3.cc"))
+	if err != nil {
+		return nil, err
+	}
+	e, ok := a.index[ccHash(name)]
+	if !ok || e.off+e.size > len(a.data) {
+		return nil, fmt.Errorf("%s: no %s", a.path, name)
+	}
+	return lzhuf(a.data[e.off : e.off+e.size]), nil
+}

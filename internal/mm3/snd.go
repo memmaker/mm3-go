@@ -7,9 +7,8 @@ package mm3
 //
 // The timing is adlib.drv's (offsets below); the other drivers keep the same timer and
 // argument conventions. With munt and the MT-32 ROMs (RomDir), music and sfx are
-// roland.drv's (roland.go) and samples are mixed into the same output; without them
-// everything is silent and only the state and timing are kept, so the game's waits
-// ("sample finished", "fade done") behave.
+// roland.drv's (roland.go); without them adlib.drv's (adlib.go) on an OPL2. Samples are
+// mixed into the same output.
 
 import (
 	"fmt"
@@ -19,11 +18,22 @@ import (
 	"github.com/memmaker/mm3-go/internal/snd"
 )
 
-// RomDir is where the MT-32 ROMs are ("" or missing: silent).
+// RomDir is where the MT-32 ROMs are ("" or missing: the AdLib plays).
 var RomDir string
 
-// rol is the roland.drv player, nil when silent.
-var rol *roland
+// soundDriver is what the game reaches through the driver's jump table.
+type soundDriver interface {
+	init()
+	shutdown()
+	music(hi int) int
+	startSong(song []byte)
+	startSfx(v int)
+	sampleStart()
+	tick()
+}
+
+// sound is roland.drv's or adlib.drv's port, nil before sndInit.
+var sound soundDriver
 
 const (
 	pitHz        = 1193182
@@ -35,10 +45,6 @@ const (
 var (
 	sndLoaded     bool   // snddrv 008d: driver segment != 0
 	sndTicks      uint16 // adlib.drv 000f
-	sndMusicOn    bool   // adlib.drv 0013
-	sndFadeRate   byte   // adlib.drv 0172
-	sndFadeAcc    byte   // adlib.drv 0173
-	sndFadeLevel  int8   // adlib.drv 0174
 	sndSampleOn   bool   // adlib.drv 017f
 	sndSampleLen  int    // adlib.drv 0179
 	sndSamplePos  int    // adlib.drv 017b
@@ -62,18 +68,21 @@ func sndInit(port int) {
 	if !sndLoaded {
 		return
 	}
-	sndMusicOn = false
-	if rol == nil && RomDir != "" {
-		if err := snd.Open(RomDir); err != nil {
-			fmt.Fprintln(os.Stderr, "MT-32:", err, "- no music (speech still plays)")
-		} else {
-			rol = newRoland(ccLoad("roland.drv"), snd.Send)
+	if sound == nil {
+		if RomDir != "" {
+			if err := snd.Open(RomDir); err != nil {
+				fmt.Fprintln(os.Stderr, "MT-32:", err, "- the AdLib plays")
+			} else {
+				sound = newRoland(snd.Send)
+			}
+		}
+		if sound == nil {
+			snd.OpenOPL()
+			sound = newAdlib(snd.WriteOPL)
 		}
 	}
-	snd.StartOutput() // speech plays without the MT-32 too
-	if rol != nil {
-		rol.init()
-	}
+	snd.StartOutput()
+	sound.init()
 	if !sndTimerAdded {
 		sndTimerAdded = true
 		host.AddTimer(sndHostTick)
@@ -82,9 +91,9 @@ func sndInit(port int) {
 
 // sndShutdown is adlib.drv 025f: unhook the timer, silence all channels.
 func sndShutdown() {
-	sndMusicOn = false
-	if rol != nil {
-		rol.shutdown()
+	if sound != nil {
+		sound.shutdown()
+		snd.Tick()
 		snd.PlaySample(nil, 0)
 	}
 }
@@ -113,7 +122,7 @@ func sndHostTick() {
 func sndSampleIRQ() {
 	sndSamplePos++
 	if sndSamplePos >= sndSampleLen {
-		sndSampleOn = false // 0379
+		sampleStop() // 0379
 	}
 	if sndSampleTkN++; sndSampleTkN >= sndSampleTk {
 		sndSampleTkN = 0
@@ -121,29 +130,26 @@ func sndSampleIRQ() {
 	}
 }
 
-// sndTickIRQ is adlib.drv 060f: count the tick; the music (skipped while a sample
-// plays, 086f) fades: rate is added to an 8-bit accumulator, each carry lowers the
-// level from 3f, and when it passes 0 the music stops (0889).
+// sampleStop ends the sample (adlib.drv 0379).
+func sampleStop() {
+	sndSampleOn = false
+	if a, ok := sound.(*adlib); ok {
+		a.sampleStop()
+	}
+}
+
+// sndTickIRQ is adlib.drv 060f: count the tick and run the driver's. roland.drv's
+// sample interrupt only counts, so it runs only between samples; adlib.drv's runs
+// throughout.
 func sndTickIRQ() {
 	sndTicks++
-	if rol != nil {
-		if !sndSampleOn {
-			rol.tick() // roland.drv 0577; a sample's interrupt (039e) only counts
-		}
-		snd.Tick()
+	if sound == nil {
 		return
 	}
-	if sndSampleOn || sndFadeRate == 0 {
-		return
+	if _, ok := sound.(*roland); !ok || !sndSampleOn {
+		sound.tick()
 	}
-	s := uint16(sndFadeAcc) + uint16(sndFadeRate)
-	sndFadeAcc = byte(s)
-	if s > 0xff {
-		if sndFadeLevel--; sndFadeLevel < 0 {
-			sndMusicOn = false
-			sndFadeRate = 0
-		}
-	}
+	snd.Tick()
 }
 
 // sndTimer is adlib.drv 048c, the timer and sound-effect entry:
@@ -163,8 +169,8 @@ func sndTimer(v int) int {
 		return int(int16(sndTicks))
 	case v < 0:
 		sndTicks = 0
-	case rol != nil:
-		rol.sfx(v) // roland.drv 02c2: 0..96, no exceptions
+	case sound != nil:
+		sound.startSfx(v)
 	}
 	return 0
 }
@@ -182,24 +188,14 @@ func sndPlayMusic(v int32) int {
 	if !sndLoaded {
 		return 0
 	}
-	if rol != nil {
-		if hi := int(int16(uint32(v) >> 16)); hi >= -1 && hi <= 0xff {
-			return rol.music(hi)
-		}
+	hi := int(int16(uint32(v) >> 16))
+	if hi < -1 || hi > 255 {
 		fatal("sndPlayMusic: use sndStartMusic for a buffer")
 	}
-	switch hi := uint16(uint32(v) >> 16); {
-	case hi == 0:
-		sndMusicOn = false
-	case hi <= 0xff:
-		sndFadeRate = byte(hi >> 1)
-		sndFadeLevel = 0x3f
-	case hi == 0xffff:
-		return int(sndFadeRate)
-	default:
-		fatal("sndPlayMusic: use sndStartMusic for a buffer")
+	if sound == nil {
+		return 0
 	}
-	return 0
+	return sound.music(hi)
 }
 
 // sndStartMusic is the song case of sndPlayMusic (adlib.drv 046e): play the .m data at p.
@@ -207,9 +203,8 @@ func sndStartMusic(p Far) {
 	if !sndLoaded {
 		return
 	}
-	sndMusicOn = true
-	if rol != nil {
-		rol.startSong(p.B())
+	if sound != nil {
+		sound.startSong(p.B())
 	}
 }
 
@@ -226,16 +221,16 @@ func sndPlaySample(p Far, n int) int {
 		}
 		return 0
 	case p == 0:
-		sndSampleOn = false
-		if rol != nil {
-			snd.PlaySample(nil, 0)
+		if sndSampleOn {
+			sampleStop()
 		}
+		snd.PlaySample(nil, 0)
 	default:
 		n = int(uint16(n)) // the driver's count is an unsigned 16-bit register
 		b := p.B()[:n]
 		sndSampleLen, sndSamplePos, sndSampleOn = n, 0, n > 0
-		if rol != nil {
-			rol.sampleStart()
+		if sound != nil {
+			sound.sampleStart()
 			snd.PlaySample(b, 8008)
 		}
 	}

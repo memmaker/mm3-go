@@ -10,23 +10,23 @@ import (
 	"github.com/memmaker/mm3-go/internal/snd"
 )
 
-func rolandData(t *testing.T) (drv, song []byte) {
+func rolandData(t *testing.T) (song []byte) {
 	dir := os.Getenv("MM3_DATA")
 	if dir == "" {
 		t.Skip("MM3_DATA (the game directory) not set")
 	}
 	GameDir = dir
 	openCCArchive()
-	return ccLoad("roland.drv"), ccLoad("mm3theme.m")
+	return ccLoad("mm3theme.m")
 }
 
 // The title song through the roland.drv port for a minute: notes go on and off in
 // pairs on channels 2..10 with sane keys, and an sfx script runs too.
 func TestRolandSequencer(t *testing.T) {
-	drv, song := rolandData(t)
+	song := rolandData(t)
 	on := map[[2]byte]bool{}
 	ons, offs, other := 0, 0, 0
-	r := newRoland(drv, func(m []byte) {
+	r := newRoland(func(m []byte) {
 		st, ch := m[0]&0xf0, m[0]&0xf
 		if m[0] < 0xf0 && (ch < 1 || ch > 9) {
 			t.Fatalf("message % x on channel %d", m, ch+1)
@@ -52,11 +52,11 @@ func TestRolandSequencer(t *testing.T) {
 	r.startSong(song)
 	for i := 0; i < 73*60; i++ {
 		if i == 300 {
-			r.sfx(0x14)
+			r.startSfx(20)
 		}
 		r.tick()
 	}
-	t.Logf("%d note ons, %d note offs, %d other, music on %d", ons, offs, other, r.m[rMusicOn])
+	t.Logf("%d note ons, %d note offs, %d other, music on %v", ons, offs, other, r.musicOn)
 	if ons < 200 || offs < ons-9 {
 		t.Fatalf("%d note ons, %d note offs", ons, offs)
 	}
@@ -65,7 +65,7 @@ func TestRolandSequencer(t *testing.T) {
 // With munt and the ROMs (MT32_ROMS), render 8 s of the title song to $TMPDIR/mm3theme.wav
 // and check it is audible.
 func TestRolandRender(t *testing.T) {
-	drv, song := rolandData(t)
+	song := rolandData(t)
 	roms := os.Getenv("MT32_ROMS")
 	if roms == "" {
 		t.Skip("MT32_ROMS not set")
@@ -73,7 +73,7 @@ func TestRolandRender(t *testing.T) {
 	if err := snd.Open(roms); err != nil {
 		t.Skip(err)
 	}
-	r := newRoland(drv, snd.Send)
+	r := newRoland(snd.Send)
 	r.init()
 	r.startSong(song)
 	var pcm []byte
@@ -111,5 +111,29 @@ func TestRolandRender(t *testing.T) {
 	t.Logf("%s: RMS %.0f (of 32767)", wav, rms)
 	if rms < 100 {
 		t.Fatalf("RMS %.0f: silent", rms)
+	}
+}
+
+// Every song plays four minutes, with effects over it and a fade at the end, on the
+// driver's nine channels only.
+func TestRolandEverySong(t *testing.T) {
+	rolandData(t)
+	r := newRoland(func(m []byte) {
+		if ch := m[0] % 16; m[0] < midiSysex && (ch < 1 || ch > rolandChannels) {
+			t.Fatalf("message % x on MIDI channel %d", m, ch+1)
+		}
+	})
+	r.init()
+	for _, s := range []string{} {
+		r.startSong(ccLoad(s))
+		for i := range 73 * 240 {
+			if i%977 == 500 {
+				r.startSfx(i % len(rolandSfx))
+			}
+			if i == 73*200 {
+				r.music(3)
+			}
+			r.tick()
+		}
 	}
 }
