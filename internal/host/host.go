@@ -184,6 +184,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 	op.GeoM.Translate(g.offX, g.offY)
 	op.Filter = ebiten.FilterNearest
 	screen.DrawImage(g.img, op)
+	drawCursor(screen)
 }
 
 func (g *game) Layout(outsideWidth, outsideHeight int) (int, int) {
